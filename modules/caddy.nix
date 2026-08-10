@@ -87,9 +87,14 @@
 
       # --- Management & Tools ---
 
-      portainer.lo-pan.com {
+      uptimekuma.lo-pan.com {
         import cf_tls
-        reverse_proxy localhost:9000
+        reverse_proxy localhost:3001
+      }
+
+      matrix.lo-pan.com {
+        import cf_tls
+        reverse_proxy localhost:6167
       }
 
       syncthing.lo-pan.com {

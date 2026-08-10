@@ -128,6 +128,7 @@
     1080  # FreshRSS
     2283  # Immich
     3000  # Homepage Dashboard
+    3001  # Uptime Kuma
     7878  # Radarr
     8080  # qBittorrent
     8082  # Calibre

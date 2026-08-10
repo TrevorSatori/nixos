@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    hermes-agent.url = "github:NousResearch/hermes-agent";
   };
 
   outputs = { self, nixpkgs, ... }: {
@@ -17,6 +18,8 @@
         ./modules/utilities.nix
 	      ./modules/storage.nix
         ./modules/networking-vpn.nix
+        ./modules/matrix.nix
+        ./modules/hermes.nix
       ];
     };
   };

@@ -11,6 +11,16 @@ let
 in
 {
   # ---------------------------------------------------------------------------
+  # Hardware Acceleration (Intel 12th Gen UHD 730 / QuickSync & VAAPI)
+  # ---------------------------------------------------------------------------
+  hardware.graphics = {
+    enable = true;
+    extraPackages = with pkgs; [
+      intel-media-driver # Modern VAAPI (iHD) driver for Gen 8+ Intel GPUs
+      vpl-gpu-rt         # Intel oneVPL runtime required for QSV acceleration
+    ];
+  };
+  # ---------------------------------------------------------------------------
   # Jellyfin (Media Streaming)
   # ---------------------------------------------------------------------------
   services.jellyfin = {

@@ -68,6 +68,14 @@
     overrideFolders = false;
     guiAddress = "0.0.0.0:8384";
   };
+
+  services.uptime-kuma = {
+    enable = true;
+    settings = {
+      HOST = "0.0.0.0";
+      PORT = "3001";
+    };
+  };
   
   # Homepage
   services.homepage-dashboard = {
@@ -237,17 +245,24 @@
       {
         "Management & Tools" = [
           {
+            "Uptime Kuma" = {
+              icon = "uptime-kuma.png";
+              href = "http://lo-pan:3001";
+              description = "Uptime & Status Monitoring";
+            };
+          }
+          {
+            Matrix = {
+              icon = "matrix.png";
+              href = "http://lo-pan:8082";
+              description = "Private Messaging & AI Gateway";
+            };
+          }
+          {
             Syncthing = {
               icon = "syncthing.png";
               href = "http://lo-pan:8384";
               description = "Continuous File Sync";
-            };
-          }
-          {
-            WireGuard = {
-              icon = "wireguard.png";
-              href = "https://wg-admin.lo-pan.com";
-              description = "VPN Management";
             };
           }
         ];
