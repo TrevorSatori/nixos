@@ -1,16 +1,22 @@
-{ pkgs, config, ... }:
+{ pkgs, config, lib, ... }:
 
 {
   services.hermes-agent = {
     enable = true;
     
+    container.enable = true;
+
     # Exposes 'hermes' command in shell for CLI access
     addToSystemPackages = true; 
 
     settings = {
       model = {
-        provider = "openai";
+        provider = "openai-api";
         default = "gpt-4o";
+      };
+
+      agent = {
+        reasoning_effort = false;
       };
       
       # 'local' runs shell commands on host system.
@@ -30,8 +36,8 @@
   };
 
   systemd.services.hermes-agent.serviceConfig = {
-    ProtectSystem = "strict";
-    ProtectHome = true;
-    PrivateTmp = true;
+    ProtectSystem = lib.mkForce "full";
+    ProtectHome = lib.mkForce false;
+    PrivateTmp = lib.mkForce true;
   };
 }

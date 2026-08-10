@@ -252,13 +252,6 @@
             };
           }
           {
-            Matrix = {
-              icon = "matrix.png";
-              href = "http://lo-pan:8082";
-              description = "Private Messaging & AI Gateway";
-            };
-          }
-          {
             Syncthing = {
               icon = "syncthing.png";
               href = "http://lo-pan:8384";
