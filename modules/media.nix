@@ -7,6 +7,7 @@ let
     ProtectHome = true;
     ProtectKernelTunables = true;
   };
+
 in
 {
   # ---------------------------------------------------------------------------
@@ -51,8 +52,11 @@ in
 
   systemd.tmpfiles.rules = [
     "d /data/media 0775 media media -"
-    "d /data/media/immich 0775 immich media -"
-    "d /var/lib/immich 0775 immich media -"
+    # Change group to 'immich' and add setgid bit (2775) so new files/dirs inherit immich ownership
+    "d /data/media/immich 2775 immich immich -"
+    # Keep setgid bit (2775) for photos folder so 'media' group ownership is preserved
+    "d /data/media/photos 2775 media media -"
+    "d /var/lib/immich 0775 immich immich -"
   ];
   # ---------------------------------------------------------------------------
   # Audiobookshelf (Audiobooks & Podcasts)

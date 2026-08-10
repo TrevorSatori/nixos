@@ -32,7 +32,12 @@ in
     after = [ "vpn-namespace.service" ];
     serviceConfig = vpnServiceConfig // {
       StateDirectory = "qBittorrent";
-      ReadWritePaths = [ "/var/lib/qBittorrent" "/data/downloads" "/data/media" ];
+      UMask = "0002";
+      ReadWritePaths = [ 
+        "/var/lib/qBittorrent"
+        "/data/downloads"
+        "/data/media"
+        ];
     };
   };
 
@@ -43,7 +48,11 @@ in
     after = [ "vpn-namespace.service" ];
     serviceConfig = vpnServiceConfig // {
       StateDirectory = "sonarr";
-      ReadWritePaths = [ "/var/lib/sonarr" "/data/downloads" "/data/media" ];
+      ReadWritePaths = [ 
+      "/var/lib/sonarr" 
+      "/var/lib/qBittorrent/"
+      "/data/media" 
+      ];
     };
   };
 
@@ -54,7 +63,11 @@ in
     after = [ "vpn-namespace.service" ];
     serviceConfig = vpnServiceConfig // {
       StateDirectory = "radarr";
-      ReadWritePaths = [ "/var/lib/radarr" "/data/downloads" "/data/media" ];
+      ReadWritePaths = [ 
+      "/var/lib/radarr" 
+      "/var/lib/qBittorrent/"
+      "/data/media" 
+      ];
     };
   };
 
@@ -66,7 +79,12 @@ in
     serviceConfig = vpnServiceConfig // {
       StateDirectory = "lidarr";
       WorkingDirectory = "/var/lib/lidarr";
-      ReadWritePaths = [ "/var/lib/lidarr" "/tmp" "/data/downloads" "/data/media" ];
+      ReadWritePaths = [ 
+      "/var/lib/lidarr" 
+      "/tmp" 
+      "/var/lib/qBittorrent/"
+      "/data/media" 
+      ];
     };
   };
 

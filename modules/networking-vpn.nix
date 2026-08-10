@@ -4,12 +4,45 @@ let
   hostSubnet = "192.168.1.0/24";
 in
 {
+  # ---------------------------------------------------------------------------
+  # 1. System Controls & Base Network Options
+  # ---------------------------------------------------------------------------
   # Enable IP forwarding on host so kernel forwards packets across the veth cable
   boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
 
-  # Open Web UI ports in NixOS Firewall for your home network
-  # networking.firewall.allowedTCPPorts = [ 7878 8989 8686 9696 8080 ];
+  # Allow full, unhindered traffic on the WireGuard interface
+  networking.firewall.trustedInterfaces = [ "wg0" ];
 
+  # ---------------------------------------------------------------------------
+  # 2. WireGuard Tunnel to porkchopexpress (OpenBSD VPS)
+  # ---------------------------------------------------------------------------
+  networking.wireguard.interfaces.wg0 = {
+    # lo-pan's static IP on your OpenBSD WireGuard network
+    ips = [ "10.0.0.2/24" ];
+
+    # Path to file containing lo-pan's private key
+    privateKeyFile = "/var/src/secrets/wg-lopan.key";
+
+    peers = [
+      {
+        # Public key of porkchopexpress (OpenBSD server)
+        publicKey = "y9wydNvNZCq++BkMRMJVxB6m3Kx2hMbF/oIu7B0sBlo=";
+
+        # Route all 10.0.0.x traffic (including phone at 10.0.0.3) through porkchopexpress
+        allowedIPs = [ "10.0.0.0/24" ];
+
+        # Public IP of your Vultr OpenBSD server
+        endpoint = "vpn.lo-pan.com:51820";
+
+        # Heartbeat to keep connection alive through home firewall
+        persistentKeepalive = 25;
+      }
+    ];
+  };
+
+  # ---------------------------------------------------------------------------
+  # 3. Mullvad VPN Network Namespace (Working)
+  # ---------------------------------------------------------------------------
   systemd.services.vpn-namespace = {
     description = "Isolated Mullvad VPN Network Namespace with Local Routing";
     before = [ "network.target" ];
@@ -73,26 +106,3 @@ in
     };
   };
 }
-
-# { pkgs, ... }:
-#
-# {
-  # ---------------------------------------------------------------------------
-  # 1. Point-to-Point DigitalOcean Remote WireGuard Tunnel
-  # ---------------------------------------------------------------------------
-  # networking.wireguard.interfaces.wg-remote = {
-  #   ips = [ "10.8.0.2/32" "fdcc:ad94:bacf:61a4::cafe:2/128" ];
-  #   privateKeyFile = "/var/src/secrets/wg-remote-private.key";
-  #
-  #   peers = [{
-  #     publicKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-  #     allowedIPs = [ "10.8.0.0/24" ];
-  #     endpoint = "vpn.lo-pan.com:51820";
-  #     persistentKeepalive = 25;
-  #   }];
-  # };
-
-  # ---------------------------------------------------------------------------
-  # 2. Maximum Isolation Mullvad VPN Network Namespace (Gluetun Replacement)
-  # ---------------------------------------------------------------------------
-

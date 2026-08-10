@@ -8,7 +8,7 @@
     defaultUser = "satori";
     passwordFile = "/var/src/secrets/freshrss-pass";
     authType = "form";
-    database.type = "sqlite"; # <-- Automatically initializes the SQLite database schema!
+    database.type = "sqlite";
     virtualHost = "lo-pan";
   };
 

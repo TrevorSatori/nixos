@@ -123,6 +123,8 @@
   networking.firewall = {
     enable = true;
     allowedTCPPorts = [
+    80    # Caddy 
+    443   # Caddy
     1080  # FreshRSS
     2283  # Immich
     3000  # Homepage Dashboard

@@ -19,13 +19,8 @@
       # --- Global TLS Snippet ---
       (cf_tls) {
         tls {
-          dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+          dns cloudflare {$CLOUDFLARE_API_TOKEN}
         }
-      }
-
-      wg-admin.lo-pan.com {
-        import cf_tls
-        reverse_proxy 10.8.0.1:51821
       }
 
       # --- Media & Books ---
