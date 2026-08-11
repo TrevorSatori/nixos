@@ -22,7 +22,9 @@
 	      ./modules/storage.nix
         ./modules/networking-vpn.nix
         ./modules/matrix.nix
+        ./modules/homepage.nix
         ./modules/hermes.nix
+        ./modules/vaultwarden.nix
       ];
     };
   };

@@ -92,6 +92,15 @@
         reverse_proxy localhost:3001
       }
 
+      vault.lo-pan.com {
+        import cf_tls
+
+        # Required for real-time WebSocket syncing on mobile & browser extensions
+        reverse_proxy /notifications/hub 127.0.0.1:3012
+
+        reverse_proxy 127.0.0.1:8222
+      }
+
       matrix.lo-pan.com {
         import cf_tls
         reverse_proxy localhost:6167
