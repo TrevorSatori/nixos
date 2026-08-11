@@ -4,6 +4,8 @@
   services.vaultwarden = {
     enable = true;
 
+    backupDir = "/var/backup/vaultwarden";
+
     # Pointing to your .env secret file
     environmentFile = "/var/src/secrets/vaultwarden.env";
 
@@ -22,7 +24,7 @@
 
       # Signups enabled initially so you can create your account.
       # (Change to false after creating your user to lock down access)
-      SIGNUPS_ALLOWED = true;
+      SIGNUPS_ALLOWED = false;
     };
   };
 }

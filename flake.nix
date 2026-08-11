@@ -25,6 +25,7 @@
         ./modules/homepage.nix
         ./modules/hermes.nix
         ./modules/vaultwarden.nix
+        ./modules/backup.nix
       ];
     };
   };

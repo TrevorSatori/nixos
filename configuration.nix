@@ -43,7 +43,7 @@
   # Primary Admin User
   users.users.satori = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" "video" "render" ]; # video/render for GPU
+    extraGroups = [ "wheel" "networkmanager" "media" "video" "render" ]; # video/render for GPU
     shell = pkgs.zsh;
 
     openssh.authorizedKeys.keys = [
@@ -83,28 +83,6 @@
     wireguard-tools
     restic
   ];
-
-  # ---------------------------------------------------------------------------
-  # Restic Automated Backups
-  # ---------------------------------------------------------------------------
-  # services.restic.backups.homelab = {
-  #   repository = "/mnt/backups/restic"; # Change to S3/B2 or external drive as needed
-  #   passwordFile = "/var/src/secrets/restic-password";
-  #   initialize = true;
-  #   paths = [
-  #     "/var/lib"   # Automatically captures all app DBs (Jellyfin, Sonarr, Immich, etc.)
-  #     "/etc/nixos" # Captures Nix configuration code
-  #   ];
-  #   timerConfig = {
-  #     OnCalendar = "daily";
-  #     Persistent = true;
-  #   };
-  #   pruneOpts = [
-  #     "--keep-daily 7"
-  #     "--keep-weekly 4"
-  #     "--keep-monthly 12"
-  #   ];
-  # };
 
   # ---------------------------------------------------------------------------
   # Remote Access (SSH)
