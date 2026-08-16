@@ -6,7 +6,7 @@
     enable = true;
     listenPort = 3000;
     
-    allowedHosts = "lo-pan:3000,homepage.lo-pan.com";
+    allowedHosts = "lo-pan:3000,home.lo-pan.com";
     # -------------------------------------------------------------------------
     # settings.yaml
     # -------------------------------------------------------------------------

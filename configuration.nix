@@ -93,6 +93,11 @@
       PermitRootLogin = "no";
       PasswordAuthentication = true;
     };
+    extraConfig = ''
+      ClientAliveInterval 10
+      ClientAliveCountMax 3
+      TCPKeepAlive yes
+    '';
   };
 
   # ---------------------------------------------------------------------------

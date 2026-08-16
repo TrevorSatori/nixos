@@ -8,10 +8,18 @@ in
   # 1. System Controls & Base Network Options
   # ---------------------------------------------------------------------------
   # Enable IP forwarding on host so kernel forwards packets across the veth cable
-  boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
+  boot.kernel.sysctl = {
+    "net.ipv4.ip_forward" = 1;
+  };
 
   # Allow full, unhindered traffic on the WireGuard interface
   networking.firewall.trustedInterfaces = [ "wg0" ];
+
+  # TCP MSS Clamping to prevent fragmentation errors across the WireGuard tunnel
+  networking.firewall.extraCommands = ''
+    iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu || true
+    iptables -t mangle -A OUTPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu || true
+  '';
 
   # ---------------------------------------------------------------------------
   # 2. WireGuard Tunnel to porkchopexpress (OpenBSD VPS)
@@ -19,6 +27,7 @@ in
   networking.wireguard.interfaces.wg0 = {
     # lo-pan's static IP on your OpenBSD WireGuard network
     ips = [ "10.0.0.2/24" ];
+    mtu = 1360;
 
     # Path to file containing lo-pan's private key
     privateKeyFile = "/var/src/secrets/wg-lopan.key";

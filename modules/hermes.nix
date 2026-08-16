@@ -9,7 +9,6 @@ let
       owner = "madbonez";
       repo = "caldav-mcp";
       rev = "main";
-      # If the sha256 fails on first build, replace with lib.fakeSha256 or the hash provided by nix
       hash = "sha256-Vq/Va9GSho3zFMBLiiA7iccv6ywS1OXZ93HWeQH676g=";
     };
     format = "pyproject";
@@ -24,8 +23,25 @@ let
     ];
     doCheck = false;
   };
+
+  # Wrapper script to enforce unbuffered stdio and prevent FastMCP hangs
+  wrappedCaldavMcp = pkgs.writeShellScriptBin "mcp-caldav-runner" ''
+    export PYTHONUNBUFFERED=1
+    export FASTMCP_LOG_LEVEL=ERROR
+    exec ${caldavMcpServer}/bin/mcp-caldav "$@"
+  '';
 in
 {
+  # Isolated system user
+  users.users.hermes = {
+    isSystemUser = true;
+    group = "hermes";
+    home = "/var/lib/hermes";
+    createHome = true;
+    description = "Hermes Agent Daemon User";
+  };
+  users.groups.hermes = {};
+
   services.hermes-agent = {
     enable = true;
     container.enable = false;
@@ -37,6 +53,10 @@ in
         default = "gpt-4o";
       };
 
+      logging = {
+        level = "DEBUG";
+      };
+
       agent = {
         reasoning_effort = false;
       };
@@ -46,13 +66,13 @@ in
       messaging = {
         matrix = {
           enable = true;
-          require_mention = true;
+          require_mention = false;
         };
       };
 
       mcp_servers = {
         radicale_calendar = {
-          command = "${caldavMcpServer}/bin/mcp-caldav";
+          command = "${wrappedCaldavMcp}/bin/mcp-caldav-runner";
           args = [ ];
         };
       };
@@ -68,16 +88,46 @@ in
     cacert 
   ];
 
-  systemd.services.hermes-agent.serviceConfig = {
-    ProtectSystem = lib.mkForce false;
-    ProtectHome = lib.mkForce false;
-    PrivateTmp = lib.mkForce false;
-    ReadWritePaths = [ 
-      "/etc/nixos"
-      "/tmp"
-    ];
+  # Systemd Isolation & Hard Cgroup Bounds (using mkForce to override upstream defaults)
+  systemd.services.hermes-agent = {
+    after = [ "network-online.target" "radicale.service" "matrix-tuwunel.service" ];
+    wants = [ "network-online.target" ];
+
+    serviceConfig = {
+      User = lib.mkForce "hermes";
+      Group = lib.mkForce "hermes";
+      WorkingDirectory = lib.mkForce "/var/lib/hermes";
+      StateDirectory = lib.mkForce "hermes";
+
+      # Resource Guardrails
+      CPUQuota = lib.mkForce "80%";
+      MemoryMax = lib.mkForce "2G";
+      MemoryHigh = lib.mkForce "1.5G";
+
+      # Sandboxing
+      ProtectHome = lib.mkForce true;
+      ProtectSystem = lib.mkForce "strict";
+      PrivateTmp = lib.mkForce true;
+      ProtectKernelTunables = lib.mkForce true;
+      ProtectControlGroups = lib.mkForce true;
+      NoNewPrivileges = lib.mkForce true;
+
+      ReadWritePaths = lib.mkForce [ 
+        "/var/lib/hermes"
+        "/etc/nixos"
+      ];
+
+      StandardOutput = lib.mkForce "journal";
+      StandardError = lib.mkForce "journal";
+
+      Restart = lib.mkForce "on-failure";
+      RestartSec = lib.mkForce "10s";
+    };
   };
 
-  users.users.hermes.extraGroups = [ "wheel" ];
-  security.sudo.wheelNeedsPassword = false;
+  # State and secret permissions
+  systemd.tmpfiles.rules = [
+    "d /var/lib/hermes 0750 hermes hermes -"
+    "z /var/src/secrets/hermes-env 0600 hermes hermes -"
+  ];
 }
