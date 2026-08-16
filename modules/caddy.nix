@@ -23,6 +23,12 @@
         }
       }
 
+      
+      home.lo-pan.com {
+        import cf_tls
+        reverse_proxy localhost:3000
+      }
+
       # --- Media & Books ---
 
       freshrss.lo-pan.com {
@@ -104,6 +110,11 @@
       matrix.lo-pan.com {
         import cf_tls
         reverse_proxy localhost:6167
+      }
+      
+      dav.lo-pan.com {
+        import cf_tls
+        reverse_proxy localhost:5232
       }
 
       syncthing.lo-pan.com {

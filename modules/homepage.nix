@@ -169,6 +169,14 @@
       {
         "Management & Tools" = [
           {
+            Radicale = {
+              icon = "radicale.png";
+              href = "https://dav.lo-pan.com";
+              description = "CalDAV & CardDAV Server";
+              ping = "http://127.0.0.1:5232";
+            };
+          }
+          {
             Vaultwarden = {
               icon = "vaultwarden.png";
               href = "https://vault.lo-pan.com";

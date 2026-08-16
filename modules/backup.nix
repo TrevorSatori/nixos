@@ -15,7 +15,7 @@
 
     # Schedule: Run daily at 02:30 AM
     timerConfig = {
-      OnCalendar = "02:30:00";
+      OnCalendar = "03:33:00";
       Persistent = true;
     };
 

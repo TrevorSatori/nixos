@@ -9,7 +9,7 @@
   fileSystems."/data/media" = {
     device = "/dev/disk/by-uuid/9527c6af-757d-41bf-b6af-d453e34afaac";
     fsType = "btrfs";
-    options = [ "subvol=@media" "compress=zstd:3" "autodefrag" "noatime" "space_cache=v2" "nofail" ];
+    options = [ "subvol=@media" "compress=zstd:3" "noatime" "space_cache=v2" "nofail" ];
   };
 
   # Downloads - Subvolume @downloads (No CoW compatible, no compression)
@@ -30,7 +30,7 @@
   fileSystems."/data/production" = {
     device = "/dev/disk/by-uuid/9527c6af-757d-41bf-b6af-d453e34afaac";
     fsType = "btrfs";
-    options = [ "subvol=@production" "compress=zstd:3" "autodefrag" "noatime" "space_cache=v2" "nofail" ];
+    options = [ "subvol=@production" "compress=zstd:3" "noatime" "space_cache=v2" "nofail" ];
   };
 
   # Archive - Subvolume @archive
@@ -53,6 +53,6 @@
   fileSystems."/mnt/mog" = {
     device = "/dev/disk/by-uuid/dbf96d86-43ba-412d-b3b9-154090d3ec11";
     fsType = "btrfs";
-    options = [ "compress=zstd:3" "autodefrag" "noatime" "space_cache=v2" "nofail" ];
+    options = [ "compress=zstd:3" "noatime" "space_cache=v2" "nofail" ];
   };
 }
