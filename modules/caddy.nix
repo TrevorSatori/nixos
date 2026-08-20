@@ -68,27 +68,27 @@
 
       sonarr.lo-pan.com {
         import cf_tls
-        reverse_proxy localhost:8989
+        reverse_proxy 10.200.1.2:8989
       }
 
       radarr.lo-pan.com {
         import cf_tls
-        reverse_proxy localhost:7878
+        reverse_proxy 10.200.1.2:7878
       }
 
       lidarr.lo-pan.com {
         import cf_tls
-        reverse_proxy localhost:8686
+        reverse_proxy 10.200.1.2:8686
       }
 
       prowlarr.lo-pan.com {
         import cf_tls
-        reverse_proxy localhost:9696
+        reverse_proxy 10.200.1.2:9696
       }
 
       qbittorrent.lo-pan.com {
         import cf_tls
-        reverse_proxy localhost:8080
+        reverse_proxy 10.200.1.2:8080
       }
 
       # --- Management & Tools ---
