@@ -24,6 +24,8 @@
       "/etc/nixos"               # NixOS System configuration
       "/var/src/secrets"         # Secret files / .env files
       "/var/lib/vaultwarden"     # Vaultwarden config/data
+      "/var/lib/radicale"
+      "/var/lib/audiobookshelf"
       "/var/backup/vaultwarden"  # Vaultwarden DB dumps
       "/data/media/immich"       # Immich original photos/videos
       "/data/media/photos"       # External libraries

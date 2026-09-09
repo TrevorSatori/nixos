@@ -54,6 +54,7 @@
       go 
       nodejs
       rustup
+      unzip
       neovim
       git
       tmux

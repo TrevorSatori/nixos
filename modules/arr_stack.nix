@@ -28,7 +28,7 @@ in
   # 1. qBittorrent
   services.qbittorrent = { enable = true; user = "media"; group = "media"; };
   systemd.services.qbittorrent = {
-    requires = [ "vpn-namespace.service" ];
+    bindsTo = [ "vpn-namespace.service" ];
     after = [ "vpn-namespace.service" ];
     serviceConfig = vpnServiceConfig // {
       StateDirectory = "qBittorrent";
@@ -44,7 +44,7 @@ in
   # 2. Sonarr
   services.sonarr = { enable = true; user = "media"; group = "media"; };
   systemd.services.sonarr = {
-    requires = [ "vpn-namespace.service" ];
+    bindsTo = [ "vpn-namespace.service" ];
     after = [ "vpn-namespace.service" ];
     serviceConfig = vpnServiceConfig // {
       StateDirectory = "sonarr";
@@ -59,7 +59,7 @@ in
   # 3. Radarr
   services.radarr = { enable = true; user = "media"; group = "media"; };
   systemd.services.radarr = {
-    requires = [ "vpn-namespace.service" ];
+    bindsTo = [ "vpn-namespace.service" ];
     after = [ "vpn-namespace.service" ];
     serviceConfig = vpnServiceConfig // {
       StateDirectory = "radarr";
@@ -74,7 +74,7 @@ in
   # 4. Lidarr
   services.lidarr = { enable = true; user = "media"; group = "media"; };
   systemd.services.lidarr = {
-    requires = [ "vpn-namespace.service" ];
+    bindsTo = [ "vpn-namespace.service" ];
     after = [ "vpn-namespace.service" ];
     serviceConfig = vpnServiceConfig // {
       StateDirectory = "lidarr";
@@ -91,7 +91,7 @@ in
   # 5. Prowlarr
   services.prowlarr = { enable = true; };
   systemd.services.prowlarr = {
-    requires = [ "vpn-namespace.service" ];
+    bindsTo = [ "vpn-namespace.service" ];
     after = [ "vpn-namespace.service" ];
     serviceConfig = vpnServiceConfig // {
       StateDirectory = "prowlarr";
@@ -103,7 +103,7 @@ in
   systemd.services.flaresolverr = {
     description = "FlareSolverr proxy service";
     wantedBy = [ "multi-user.target" ];
-    requires = [ "vpn-namespace.service" ];
+    bindsTo = [ "vpn-namespace.service" ];
     after = [ "vpn-namespace.service" ];
     path = with pkgs; [ chromium ];
     environment = {

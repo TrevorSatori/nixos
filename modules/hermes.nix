@@ -49,8 +49,8 @@ in
 
     settings = {
       model = {
-        provider = "openai-api";
-        default = "gpt-4o";
+        provider = "anthropic";
+        default = "claude-opus-4-7";
       };
 
       logging = {
@@ -128,6 +128,9 @@ in
   # State and secret permissions
   systemd.tmpfiles.rules = [
     "d /var/lib/hermes 0750 hermes hermes -"
-    "z /var/src/secrets/hermes-env 0600 hermes hermes -"
+    "z /var/src/secrets/hermes-env 0640 hermes hermes -"
+    "A /etc/nixos - - - - user:hermes:rwx,default:user:hermes:rwx"
   ];
+
+  users.users.satori.extraGroups = [ "hermes" ];
 }
