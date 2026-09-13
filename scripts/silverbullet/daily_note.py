@@ -352,7 +352,7 @@ ${{query[[
 
 def ensure_year_index(year: int) -> None:
     """Ensure Journal/YYYY.md exists with a live-query listing of that year's notes."""
-    path = SPACE_PATH / "Journal" / f"{year:04d}.md"
+    path = SPACE_PATH / "journal" / f"{year:04d}.md"
     if path.exists():
         return
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -369,7 +369,7 @@ def refresh_auto_sections(existing: str, act_body: str, health_body: str) -> str
 # ── file I/O ─────────────────────────────────────────────────────────────────
 
 def note_path(d: date) -> Path:
-    return SPACE_PATH / "Journal" / f"{d.year:04d}" / f"{d.month:02d}" / f"{d.isoformat()}.md"
+    return SPACE_PATH / "journal" / f"{d.year:04d}" / f"{d.month:02d}" / f"{d.isoformat()}.md"
 
 
 def atomic_write(path: Path, content: str) -> None:
