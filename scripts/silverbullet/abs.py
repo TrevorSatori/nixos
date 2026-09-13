@@ -157,12 +157,12 @@ def make_reading_log_template(year):
         "  order by p.name asc\n"
         "  select \"- \" .. (p.status or \"\U0001f4d6\") .. \" [[\" .. p.name .. \"|\" .. (p.title or p.name) .. \"]]\"\n"
         "]]}\n\n"
-        "## \U0001f9b8 Comics\n\n"
+        "## \U0001f4a5 Comics\n\n"
         "${query[[\n"
         "  from p = index.pages(\"comic\")\n"
         "  where p.year == " + y + "\n"
         "  order by p.name asc\n"
-        "  select \"- \" .. (p.status or \"\U0001f4d6\") .. \" [[\" .. p.name .. \"|\" .. (p.title or p.name) .. \"]]\"\n"
+        "  select \"- \" .. (p.status or \"\U0001f4a5\") .. \" [[\" .. p.name .. \"|\" .. (p.title or p.name) .. \"]]\"\n"
         "]]}\n"
     )
 
