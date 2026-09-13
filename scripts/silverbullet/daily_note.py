@@ -311,13 +311,29 @@ def render_bodies(d: date, activities: list[dict], health: dict) -> tuple[str, s
     return act_body, health_body
 
 
+VITAMINS_TEMPLATE = SPACE_PATH / "configs" / "vitamins.md"
+
+
+def _vitamins_body() -> str:
+    """Read the vitamins template file; return its contents (or empty if
+    missing). Only used when creating a *new* daily note — never overwrites
+    an existing note's Vitamins section."""
+    try:
+        return VITAMINS_TEMPLATE.read_text().strip()
+    except FileNotFoundError:
+        return ""
+
+
 def build_full_note(d: date, act_body: str, health_body: str) -> str:
-    day_name = d.strftime("%A, %B %-d")
+    day_name  = d.strftime("%A, %B %-d")
+    vitamins  = _vitamins_body()
+    vit_block = f"\n{vitamins}\n" if vitamins else "\n"
     return (
         f"---\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\n---\n"
         f"# {day_name}\n\n"
         f"## Activity\n{act_body}\n\n"
         f"## Health\n{health_body}\n\n"
+        f"## Vitamins\n{vit_block}\n"
         f"## Journal\n"
     )
 
