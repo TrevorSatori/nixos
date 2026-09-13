@@ -133,14 +133,49 @@ def fetch_activities(d: date) -> list[dict]:
     return out
 
 
+def _book_note_lookup() -> dict[str, str]:
+    """Build {title: 'books/slug'} from all book/comic notes in the space."""
+    out: dict[str, str] = {}
+    if not BOOKS_DIR.exists():
+        return out
+    for p in BOOKS_DIR.glob("*.md"):
+        try:
+            text = p.read_text()
+        except Exception:
+            continue
+        m = FRONT_TITLE.search(text)
+        if m:
+            out[m.group(1).strip()] = f"books/{p.stem}"
+    return out
+
+
+_book_notes_cache: dict[str, str] | None = None
+
+
+def _linkify_book(title: str) -> str:
+    """If a book/comic note exists with this title, return a wiki-link. Else the plain title."""
+    global _book_notes_cache
+    if _book_notes_cache is None:
+        _book_notes_cache = _book_note_lookup()
+    slug = _book_notes_cache.get(title)
+    return f"[[{slug}|{title}]]" if slug else title
+
+
 def format_activity_line(a: dict) -> str:
     icon = ICON.get((a["source"], a["type"]), "📝")
+    if a.get("note_slug"):
+        title = f"[[{a['note_slug']}|{a['title']}]]"
+    elif a["source"] in ("abs", "komga"):
+        title = _linkify_book(a["title"])
+    else:
+        title = a["title"]
     if a.get("time_local"):
         hhmm    = a["time_local"].strftime("%H:%M")
         minutes = max(1, a["duration_s"] // 60)
-        return f"- {hhmm} {icon} {a['title']} — {minutes} min"
-    # Date-only event (e.g., comic completion — no meaningful time-of-day)
-    return f"- {icon} {a['title']}"
+        return f"- {hhmm} {icon} {title} — {minutes} min"
+    if a.get("suffix"):
+        return f"- {icon} {title} — {a['suffix']}"
+    return f"- {icon} {title}"
 
 
 # ── comic completions (from silverbullet notes, not influx) ──────────────────
@@ -192,12 +227,18 @@ def fetch_comic_completions(d: date) -> list[dict]:
         if not vols_today and not series_done:
             continue
         if series_done:
-            suffix = f" ({_fmt_vol_range(vols_today)})" if vols_today else ""
-            line   = f"{title} — series completed{suffix}"
+            suffix = f"series completed ({_fmt_vol_range(vols_today)})" if vols_today else "series completed"
         else:
-            line = f"{title} — {_fmt_vol_range(vols_today)}"
+            suffix = _fmt_vol_range(vols_today)
 
-        out.append({"time_local": None, "title": line, "source": "komga", "type": "comic"})
+        out.append({
+            "time_local": None,
+            "title":      title,
+            "suffix":     suffix,
+            "source":     "komga",
+            "type":       "comic",
+            "note_slug":  f"books/{p.stem}",
+        })
     return out
 
 
