@@ -131,7 +131,7 @@ def create_series_note(series_id, series_slug, title, cover_rel, date_started):
         f"## thoughts\n- \n"
     )
     note_path.write_text(content)
-    print(f"[INFO] Created: books/{series_slug}.md", flush=True)
+    print(f"[INFO] Created: comics/{series_slug}.md", flush=True)
 
 
 def append_volume(series_slug, vol_number, vol_title, read_date):
@@ -145,7 +145,7 @@ def append_volume(series_slug, vol_number, vol_title, read_date):
     else:
         content += section
     note_path.write_text(content)
-    print(f"[INFO] Appended Vol. {vol_number} to books/{series_slug}.md", flush=True)
+    print(f"[INFO] Appended Vol. {vol_number} to comics/{series_slug}.md", flush=True)
 
 
 def mark_series_finished(series_slug, date_finished):
@@ -158,7 +158,7 @@ def mark_series_finished(series_slug, date_finished):
         f'status: "🌟 finished"\ndate_finished: {date_finished}',
     )
     note_path.write_text(content)
-    print(f"[INFO] Marked finished: books/{series_slug}.md", flush=True)
+    print(f"[INFO] Marked finished: comics/{series_slug}.md", flush=True)
 
 
 def make_reading_log_template(year):
