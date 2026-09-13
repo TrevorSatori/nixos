@@ -206,13 +206,38 @@ AUTO_BLOCK_RE = re.compile(
 def build_full_note(d: date, act_block: str, health_block: str) -> str:
     day_name = d.strftime("%A, %B %-d")
     return (
-        f"---\ntags: daily\ndate: {d.isoformat()}\n---\n"
+        f"---\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\n---\n"
         f"# {day_name}\n\n"
         f"<!-- BEGIN AUTO: activity -->\n{act_block}\n<!-- END AUTO -->\n\n"
         f"<!-- BEGIN AUTO: health -->\n{health_block}\n<!-- END AUTO -->\n\n"
         f"## Journal\n\n"
         f"## Tomorrow\n- [ ] \n"
     )
+
+
+YEAR_INDEX_TEMPLATE = '''---
+tags: yearly_journal
+year: {year}
+---
+# Daily Notes {year}
+
+${{query[[
+  from p = index.pages("daily")
+  where p.year == {year}
+  order by p.date asc
+  select "- [[" .. p.name .. "|" .. p.date .. "]]"
+]]}}
+'''
+
+
+def ensure_year_index(year: int) -> None:
+    """Ensure Journal/YYYY.md exists with a live-query listing of that year's notes."""
+    path = SPACE_PATH / "Journal" / f"{year:04d}.md"
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write(path, YEAR_INDEX_TEMPLATE.format(year=year))
+    print(f"[INFO] Journal/{year}.md: year-index page created", flush=True)
 
 
 def refresh_auto_blocks(existing: str, act_block: str, health_block: str) -> str:
@@ -253,12 +278,13 @@ def write_note_for(d: date) -> None:
         updated  = refresh_auto_blocks(existing, act_block, health_block)
         if updated == existing:
             print(f"[INFO] {path.name}: unchanged", flush=True)
-            return
-        atomic_write(path, updated)
-        print(f"[INFO] {path.name}: auto blocks refreshed ({len(activities)} activities)", flush=True)
+        else:
+            atomic_write(path, updated)
+            print(f"[INFO] {path.name}: auto blocks refreshed ({len(activities)} activities)", flush=True)
     else:
         atomic_write(path, build_full_note(d, act_block, health_block))
         print(f"[INFO] {path.name}: created ({len(activities)} activities)", flush=True)
+    ensure_year_index(d.year)
 
 
 def write_today_skeleton(d: date) -> None:
@@ -270,6 +296,7 @@ def write_today_skeleton(d: date) -> None:
     act_block, health_block = render(d, [], fetch_health(d))
     atomic_write(path, build_full_note(d, act_block, health_block))
     print(f"[INFO] {path.name}: skeleton created for today", flush=True)
+    ensure_year_index(d.year)
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
