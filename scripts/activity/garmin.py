@@ -187,100 +187,68 @@ def _recent_days():
 
 
 def poll_hr(client, state):
-    last_ms   = int(state.get("last_hr_ts_ms") or 0)
-    days      = _recent_days()
-    lines     = []
-    newest_ms = last_ms
-
-    for d in days:
+    # No per-timestamp dedup — Garmin can backfill older days at any time, and
+    # InfluxDB overwrites points with identical (measurement, tags, timestamp).
+    lines = []
+    for d in _recent_days():
         hr = safe(f"get_heart_rates({d})", client.get_heart_rates, d.isoformat()) or {}
-        values = hr.get("heartRateValues") or []
-        for entry in values:
+        for entry in (hr.get("heartRateValues") or []):
             if not entry or len(entry) < 2:
                 continue
             ts_ms, bpm = entry[0], entry[1]
-            if bpm is None or ts_ms is None or ts_ms <= last_ms:
+            if bpm is None or ts_ms is None:
                 continue
             lines.append(biometric_line("heart_rate", f"{int(bpm)}i", ts_ms))
-            if ts_ms > newest_ms:
-                newest_ms = ts_ms
-        # Resting HR: one value per day; timestamp it at that day's midnight.
         resting = hr.get("restingHeartRate")
         if resting is not None:
             day_ms = int(datetime.strptime(d.isoformat(), "%Y-%m-%d").timestamp() * 1000)
             lines.append(biometric_line("resting_hr", f"{int(resting)}i", day_ms))
-
-    state["last_hr_ts_ms"] = newest_ms
     return lines
 
 
 def poll_stress(client, state):
-    """Garmin stress: get_stress(cdate) returns dict with stressValuesArray:
-    [[ts_ms, stress_level (int, 0-100, -1/-2 for rest/off)], ...]"""
-    last_ms   = int(state.get("last_stress_ts_ms") or 0)
-    lines     = []
-    newest_ms = last_ms
+    lines = []
     for d in _recent_days():
         s = safe(f"get_stress({d})", client.get_stress_data, d.isoformat()) or {}
         for entry in (s.get("stressValuesArray") or []):
             if len(entry) < 2:
                 continue
             ts_ms, val = entry[0], entry[1]
-            if val is None or val < 0 or ts_ms <= last_ms:
+            if val is None or val < 0:
                 continue
             lines.append(biometric_line("stress", f"{int(val)}i", ts_ms))
-            if ts_ms > newest_ms:
-                newest_ms = ts_ms
-    state["last_stress_ts_ms"] = newest_ms
     return lines
 
 
 def poll_body_battery(client, state):
-    """Garmin body battery: get_body_battery(start, end?) returns list of dicts
-    each with bodyBatteryValuesArray: [[ts_ms, level], ...]"""
-    last_ms   = int(state.get("last_bb_ts_ms") or 0)
-    lines     = []
-    newest_ms = last_ms
+    lines  = []
     recent = _recent_days()
-    bb    = safe("get_body_battery", client.get_body_battery, recent[0].isoformat(), recent[-1].isoformat()) or []
+    bb     = safe("get_body_battery", client.get_body_battery, recent[0].isoformat(), recent[-1].isoformat()) or []
     for day in bb:
         for entry in (day.get("bodyBatteryValuesArray") or []):
             if not entry or len(entry) < 2:
                 continue
             ts_ms, level = entry[0], entry[1]
-            if level is None or ts_ms is None or ts_ms <= last_ms:
+            if level is None or ts_ms is None:
                 continue
             lines.append(biometric_line("body_battery", f"{int(level)}i", ts_ms))
-            if ts_ms > newest_ms:
-                newest_ms = ts_ms
-    state["last_bb_ts_ms"] = newest_ms
     return lines
 
 
 def poll_steps(client, state):
-    """Garmin steps: get_steps_data(cdate) returns list of 15-min buckets:
-    [{startGMT, endGMT, steps, primaryActivityLevel, ...}, ...]"""
-    last_ms   = int(state.get("last_steps_ts_ms") or 0)
-    lines     = []
-    newest_ms = last_ms
+    lines = []
     for d in _recent_days():
         s = safe(f"get_steps_data({d})", client.get_steps_data, d.isoformat()) or []
         for bucket in s:
-            gmt = bucket.get("startGMT")
+            gmt   = bucket.get("startGMT")
             steps = bucket.get("steps")
             if gmt is None or steps is None:
                 continue
             try:
-                # startGMT format: "2026-09-13T02:15:00.0"
                 ts_ms = int(datetime.strptime(gmt.split(".")[0], "%Y-%m-%dT%H:%M:%S").timestamp() * 1000)
             except Exception:
                 continue
-            if ts_ms <= last_ms:
-                continue
             lines.append(biometric_line("steps", f"{int(steps)}i", ts_ms))
-            if ts_ms > newest_ms:
-                newest_ms = ts_ms
-    state["last_steps_ts_ms"] = newest_ms
     return lines
 
 
