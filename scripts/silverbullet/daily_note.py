@@ -208,9 +208,11 @@ def build_full_note(d: date, act_body: str, health_body: str) -> str:
         f"# {day_name}\n\n"
         f"## Activity\n{act_body}\n\n"
         f"## Health\n{health_body}\n\n"
-        f"## Journal\n\n"
-        f"## Tomorrow\n- [ ] \n"
+        f"## Journal\n"
     )
+
+
+EMPTY_HEALTH = {"resting_hr": "—", "steps": "—", "body_battery": "—", "avg_stress": "—"}
 
 
 def replace_section_body(text: str, title: str, new_body: str) -> str:
@@ -295,11 +297,12 @@ def write_note_for(d: date) -> None:
 
 def write_today_skeleton(d: date) -> None:
     """Create today's note if it doesn't exist yet — empty auto sections so the
-    Journal section is ready to type into."""
+    Journal section is ready to type into. Health values stay blank until the
+    day is over and the writer regenerates with real daily aggregates."""
     path = note_path(d)
     if path.exists():
         return
-    act_body, health_body = render_bodies(d, [], fetch_health(d))
+    act_body, health_body = render_bodies(d, [], EMPTY_HEALTH)
     atomic_write(path, build_full_note(d, act_body, health_body))
     print(f"[INFO] {path.name}: skeleton created for today", flush=True)
     ensure_year_index(d.year)
