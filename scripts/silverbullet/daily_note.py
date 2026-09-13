@@ -48,7 +48,13 @@ ICON = {
     ("garmin", "yoga"):          "🧘",
     ("garmin", "swimming"):      "🏊",
     ("garmin", "cardio"):        "❤️",
+    ("komga", "comic"):          "📖",
 }
+
+# Where the komga poller keeps comic notes. Frontmatter has tags: comic and
+# optionally date_finished (whole series done). Volume completions get appended
+# to the note body as "## Vol. N · <title>\n- Finished: YYYY-MM-DD" sections.
+BOOKS_DIR = Path(os.environ.get("SILVERBULLET_BOOKS_DIR", "/data/media/silverbullet/books"))
 
 
 # ── influx query helper ──────────────────────────────────────────────────────
@@ -128,10 +134,71 @@ def fetch_activities(d: date) -> list[dict]:
 
 
 def format_activity_line(a: dict) -> str:
-    icon      = ICON.get((a["source"], a["type"]), "📝")
-    hhmm      = a["time_local"].strftime("%H:%M")
-    minutes   = max(1, a["duration_s"] // 60)
-    return f"- {hhmm} {icon} {a['title']} — {minutes} min"
+    icon = ICON.get((a["source"], a["type"]), "📝")
+    if a.get("time_local"):
+        hhmm    = a["time_local"].strftime("%H:%M")
+        minutes = max(1, a["duration_s"] // 60)
+        return f"- {hhmm} {icon} {a['title']} — {minutes} min"
+    # Date-only event (e.g., comic completion — no meaningful time-of-day)
+    return f"- {icon} {a['title']}"
+
+
+# ── comic completions (from silverbullet notes, not influx) ──────────────────
+
+FRONT_TITLE  = re.compile(r'^title:\s*"?([^"\n]+)"?\s*$', re.MULTILINE)
+FRONT_TAGS   = re.compile(r'^tags:\s*(.+)$',              re.MULTILINE)
+FRONT_FIN    = re.compile(r'^date_finished:\s*(\S+)',     re.MULTILINE)
+VOL_SECTION  = re.compile(
+    r'^## Vol\.\s*(\S+)\s*·\s*([^\n]+)\n-\s*Finished:\s*(\S+)',
+    re.MULTILINE,
+)
+
+
+def _fmt_vol_range(nums: list[str]) -> str:
+    # Preserve order; produce "Vol. 3", "Vol. 1-6", "Vols. 2, 5, 7"
+    if len(nums) == 1:
+        return f"Vol. {nums[0]}"
+    try:
+        ints = [int(n) for n in nums]
+        if ints == list(range(min(ints), max(ints) + 1)):
+            return f"Vol. {min(ints)}–{max(ints)}"
+    except ValueError:
+        pass
+    return "Vols. " + ", ".join(nums)
+
+
+def fetch_comic_completions(d: date) -> list[dict]:
+    """Scan silverbullet books/*.md for comic activity on `d`. Collapses to one
+    line per series: 'series completed (Vol. 1–6)' if the whole series finished,
+    otherwise 'Vol. N' (or range) for volumes finished that day."""
+    target = d.isoformat()
+    out: list[dict] = []
+    if not BOOKS_DIR.exists():
+        return out
+    for p in BOOKS_DIR.glob("*.md"):
+        try:
+            text = p.read_text()
+        except Exception:
+            continue
+        tags_m = FRONT_TAGS.search(text)
+        if not tags_m or "comic" not in tags_m.group(1).lower():
+            continue
+        title_m = FRONT_TITLE.search(text)
+        title   = title_m.group(1) if title_m else p.stem
+
+        vols_today = [num for num, _v_title, fin in VOL_SECTION.findall(text) if fin == target]
+        series_done = bool(FRONT_FIN.search(text) and FRONT_FIN.search(text).group(1) == target)
+
+        if not vols_today and not series_done:
+            continue
+        if series_done:
+            suffix = f" ({_fmt_vol_range(vols_today)})" if vols_today else ""
+            line   = f"{title} — series completed{suffix}"
+        else:
+            line = f"{title} — {_fmt_vol_range(vols_today)}"
+
+        out.append({"time_local": None, "title": line, "source": "komga", "type": "comic"})
+    return out
 
 
 # ── biometrics summary ───────────────────────────────────────────────────────
@@ -276,7 +343,8 @@ def atomic_write(path: Path, content: str) -> None:
 
 
 def write_note_for(d: date) -> None:
-    activities = fetch_activities(d)
+    # Time-based sessions first (chronological), then date-only comic completions.
+    activities = fetch_activities(d) + fetch_comic_completions(d)
     health     = fetch_health(d)
     act_body, health_body = render_bodies(d, activities, health)
     path = note_path(d)
