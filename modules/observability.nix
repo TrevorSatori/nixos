@@ -30,17 +30,30 @@ in {
     };
     provision = {
       enable = true;
-      datasources.settings.datasources = [{
-        name = "InfluxDB";
-        type = "influxdb";
-        url  = "http://localhost:${toString influxPort}";
-        jsonData = {
-          version       = "Flux";
-          organization  = "home";
-          defaultBucket = "activity";
-        };
-        secureJsonData.token = "$__env{GRAFANA_INFLUX_TOKEN}";
-      }];
+      datasources.settings.datasources = [
+        {
+          name = "InfluxDB";
+          type = "influxdb";
+          url  = "http://localhost:${toString influxPort}";
+          jsonData = {
+            version       = "Flux";
+            organization  = "home";
+            defaultBucket = "activity";
+          };
+          secureJsonData.token = "$__env{GRAFANA_INFLUX_TOKEN}";
+        }
+        {
+          name = "InfluxDB-Biometrics";
+          type = "influxdb";
+          url  = "http://localhost:${toString influxPort}";
+          jsonData = {
+            version       = "Flux";
+            organization  = "home";
+            defaultBucket = "biometrics";
+          };
+          secureJsonData.token = "$__env{GRAFANA_INFLUX_TOKEN}";
+        }
+      ];
     };
   };
   systemd.services.grafana.serviceConfig.EnvironmentFile =
