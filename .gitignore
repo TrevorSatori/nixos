@@ -1,0 +1,4 @@
+*.orig
+*.log
+*_log.txt
+*_output.txt
