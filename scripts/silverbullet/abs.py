@@ -168,7 +168,7 @@ def make_reading_log_template(year):
 
 
 def update_reading_log(year):
-    log_file = SPACE_PATH / "books" / "reading_logs" / f"reading_log_{year}.md"
+    log_file = SPACE_PATH / "reading_logs" / f"reading_log_{year}.md"
     log_file.parent.mkdir(parents=True, exist_ok=True)
     if not log_file.exists():
         log_file.write_text(make_reading_log_template(year))

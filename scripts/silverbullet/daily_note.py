@@ -51,10 +51,11 @@ ICON = {
     ("komga", "comic"):          "💥",
 }
 
-# Where the komga poller keeps comic notes. Frontmatter has tags: comic and
-# optionally date_finished (whole series done). Volume completions get appended
-# to the note body as "## Vol. N · <title>\n- Finished: YYYY-MM-DD" sections.
-BOOKS_DIR = Path(os.environ.get("SILVERBULLET_BOOKS_DIR", "/data/media/silverbullet/books"))
+# Audiobook notes live under books/, comic notes under comics/. Both are
+# markdown with `tags: book` or `tags: comic` respectively; volume completions
+# appended as "## Vol. N · <title>\n- Finished: YYYY-MM-DD" sections.
+BOOKS_DIR  = Path(os.environ.get("SILVERBULLET_BOOKS_DIR",  "/data/media/silverbullet/books"))
+COMICS_DIR = Path(os.environ.get("SILVERBULLET_COMICS_DIR", "/data/media/silverbullet/comics"))
 
 
 # ── influx query helper ──────────────────────────────────────────────────────
@@ -134,18 +135,19 @@ def fetch_activities(d: date) -> list[dict]:
 
 
 def _book_note_lookup() -> dict[str, str]:
-    """Build {title: 'books/slug'} from all book/comic notes in the space."""
+    """Build {title: 'books/slug' | 'comics/slug'} from all book/comic notes."""
     out: dict[str, str] = {}
-    if not BOOKS_DIR.exists():
-        return out
-    for p in BOOKS_DIR.glob("*.md"):
-        try:
-            text = p.read_text()
-        except Exception:
+    for base_dir, prefix in [(BOOKS_DIR, "books"), (COMICS_DIR, "comics")]:
+        if not base_dir.exists():
             continue
-        m = FRONT_TITLE.search(text)
-        if m:
-            out[m.group(1).strip()] = f"books/{p.stem}"
+        for p in base_dir.glob("*.md"):
+            try:
+                text = p.read_text()
+            except Exception:
+                continue
+            m = FRONT_TITLE.search(text)
+            if m:
+                out[m.group(1).strip()] = f"{prefix}/{p.stem}"
     return out
 
 
@@ -203,14 +205,14 @@ def _fmt_vol_range(nums: list[str]) -> str:
 
 
 def fetch_comic_completions(d: date) -> list[dict]:
-    """Scan silverbullet books/*.md for comic activity on `d`. Collapses to one
+    """Scan silverbullet comics/*.md for comic activity on `d`. Collapses to one
     line per series: 'series completed (Vol. 1–6)' if the whole series finished,
     otherwise 'Vol. N' (or range) for volumes finished that day."""
     target = d.isoformat()
     out: list[dict] = []
-    if not BOOKS_DIR.exists():
+    if not COMICS_DIR.exists():
         return out
-    for p in BOOKS_DIR.glob("*.md"):
+    for p in COMICS_DIR.glob("*.md"):
         try:
             text = p.read_text()
         except Exception:
@@ -237,7 +239,7 @@ def fetch_comic_completions(d: date) -> list[dict]:
             "suffix":     suffix,
             "source":     "komga",
             "type":       "comic",
-            "note_slug":  f"books/{p.stem}",
+            "note_slug":  f"comics/{p.stem}",
         })
     return out
 

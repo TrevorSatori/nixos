@@ -15,8 +15,8 @@ KOMGA_PASS = os.environ.get("KOMGA_PASS", "")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "300"))
 
 STATE_FILE = SPACE_PATH / ".komga_state.json"
-BOOKS_DIR = SPACE_PATH / "books"
-COVERS_DIR = BOOKS_DIR / "covers"
+COMICS_DIR = SPACE_PATH / "comics"
+COVERS_DIR = COMICS_DIR / "covers"
 
 
 def slug(text):
@@ -106,12 +106,12 @@ def slug_from_series(s):
 def note_path_for_slug(series_slug):
     if "." in series_slug:
         parent, child = series_slug.split(".", 1)
-        return BOOKS_DIR / parent / f"{child}.md"
-    return BOOKS_DIR / f"{series_slug}.md"
+        return COMICS_DIR / parent / f"{child}.md"
+    return COMICS_DIR / f"{series_slug}.md"
 
 
 def create_series_note(series_id, series_slug, title, cover_rel, date_started):
-    BOOKS_DIR.mkdir(parents=True, exist_ok=True)
+    COMICS_DIR.mkdir(parents=True, exist_ok=True)
     note_path = note_path_for_slug(series_slug)
     note_path.parent.mkdir(parents=True, exist_ok=True)
     if note_path.exists():
@@ -184,7 +184,7 @@ def make_reading_log_template(year):
 
 
 def update_reading_log(year):
-    log_file = SPACE_PATH / "books" / "reading_logs" / f"reading_log_{year}.md"
+    log_file = SPACE_PATH / "reading_logs" / f"reading_log_{year}.md"
     log_file.parent.mkdir(parents=True, exist_ok=True)
     if not log_file.exists():
         log_file.write_text(make_reading_log_template(year))
