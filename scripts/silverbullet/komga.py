@@ -123,7 +123,7 @@ def create_series_note(series_id, series_slug, title, cover_rel, date_started):
         f'title: "{title}"\n'
         f'slug: "{series_slug}"\n'
         f"year: {date_started[:4]}\n"
-        f'status: "📖 reading"\n'
+        f'status: "💥 reading"\n'
         f"date_started: {date_started}\n"
         f"---\n"
         f"# {title}\n\n"
@@ -154,7 +154,7 @@ def mark_series_finished(series_slug, date_finished):
         return
     content = note_path.read_text()
     content = content.replace(
-        'status: "📖 reading"',
+        'status: "💥 reading"',
         f'status: "🌟 finished"\ndate_finished: {date_finished}',
     )
     note_path.write_text(content)
@@ -171,14 +171,14 @@ def make_reading_log_template(year):
         "  from p = index.pages(\"book\")\n"
         "  where p.year == " + y + "\n"
         "  order by p.name asc\n"
-        "  select \"- \" .. (p.status or \"\U0001f4d6\") .. \" [[\" .. p.name .. \"|\" .. (p.title or p.name) .. \"]]\"\n"
+        "  select \"- \" .. (p.status or \"\U0001f4a5\") .. \" [[\" .. p.name .. \"|\" .. (p.title or p.name) .. \"]]\"\n"
         "]]}\n\n"
         "## \U0001f9b8 Comics\n\n"
         "${query[[\n"
         "  from p = index.pages(\"comic\")\n"
         "  where p.year == " + y + "\n"
         "  order by p.name asc\n"
-        "  select \"- \" .. (p.status or \"\U0001f4d6\") .. \" [[\" .. p.name .. \"|\" .. (p.title or p.name) .. \"]]\"\n"
+        "  select \"- \" .. (p.status or \"\U0001f4a5\") .. \" [[\" .. p.name .. \"|\" .. (p.title or p.name) .. \"]]\"\n"
         "]]}\n"
     )
 

@@ -48,7 +48,7 @@ ICON = {
     ("garmin", "yoga"):          "🧘",
     ("garmin", "swimming"):      "🏊",
     ("garmin", "cardio"):        "❤️",
-    ("komga", "comic"):          "📖",
+    ("komga", "comic"):          "💥",
 }
 
 # Where the komga poller keeps comic notes. Frontmatter has tags: comic and
