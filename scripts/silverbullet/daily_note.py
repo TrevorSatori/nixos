@@ -178,15 +178,19 @@ def fetch_health(d: date) -> dict:
 
 # ── note rendering ───────────────────────────────────────────────────────────
 
-def render(d: date, activities: list[dict], health: dict) -> tuple[str, str]:
-    if not activities:
-        act_block = "## Activity\n_No activity recorded._"
-    else:
-        lines = "\n".join(format_activity_line(a) for a in activities)
-        act_block = f"## Activity\n{lines}"
+# These two H2 sections are managed by the writer. Their titles must not be
+# renamed by the user — the writer identifies them by heading text and rewrites
+# their body in place. Any other section (## Journal, ## Tomorrow, whatever the
+# user adds) is left untouched.
+AUTO_SECTIONS = ("Activity", "Health")
 
-    health_block = (
-        "## Health\n"
+
+def render_bodies(d: date, activities: list[dict], health: dict) -> tuple[str, str]:
+    if not activities:
+        act_body = "_No activity recorded._"
+    else:
+        act_body = "\n".join(format_activity_line(a) for a in activities)
+    health_body = (
         "| | |\n"
         "|---|---|\n"
         f"| Resting HR   | {health['resting_hr']} |\n"
@@ -194,25 +198,29 @@ def render(d: date, activities: list[dict], health: dict) -> tuple[str, str]:
         f"| Body Battery | {health['body_battery']} |\n"
         f"| Avg Stress   | {health['avg_stress']} |"
     )
-    return act_block, health_block
+    return act_body, health_body
 
 
-AUTO_BLOCK_RE = re.compile(
-    r"<!-- BEGIN AUTO: (\w+) -->.*?<!-- END AUTO -->",
-    re.DOTALL,
-)
-
-
-def build_full_note(d: date, act_block: str, health_block: str) -> str:
+def build_full_note(d: date, act_body: str, health_body: str) -> str:
     day_name = d.strftime("%A, %B %-d")
     return (
         f"---\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\n---\n"
         f"# {day_name}\n\n"
-        f"<!-- BEGIN AUTO: activity -->\n{act_block}\n<!-- END AUTO -->\n\n"
-        f"<!-- BEGIN AUTO: health -->\n{health_block}\n<!-- END AUTO -->\n\n"
+        f"## Activity\n{act_body}\n\n"
+        f"## Health\n{health_body}\n\n"
         f"## Journal\n\n"
         f"## Tomorrow\n- [ ] \n"
     )
+
+
+def replace_section_body(text: str, title: str, new_body: str) -> str:
+    """Replace the body of the '## {title}' section in `text`, keeping the
+    heading. If the section isn't found, return `text` unchanged."""
+    pattern = re.compile(
+        rf"^(## {re.escape(title)}\n).*?(?=^## |\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+    return pattern.sub(rf"\1{new_body}\n\n", text, count=1)
 
 
 YEAR_INDEX_TEMPLATE = '''---
@@ -240,12 +248,10 @@ def ensure_year_index(year: int) -> None:
     print(f"[INFO] Journal/{year}.md: year-index page created", flush=True)
 
 
-def refresh_auto_blocks(existing: str, act_block: str, health_block: str) -> str:
-    blocks = {"activity": act_block, "health": health_block}
-    def repl(m):
-        name = m.group(1)
-        return f"<!-- BEGIN AUTO: {name} -->\n{blocks.get(name, m.group(0))}\n<!-- END AUTO -->"
-    return AUTO_BLOCK_RE.sub(repl, existing)
+def refresh_auto_sections(existing: str, act_body: str, health_body: str) -> str:
+    out = replace_section_body(existing,  "Activity", act_body)
+    out = replace_section_body(out,       "Health",   health_body)
+    return out
 
 
 # ── file I/O ─────────────────────────────────────────────────────────────────
@@ -270,31 +276,31 @@ def atomic_write(path: Path, content: str) -> None:
 def write_note_for(d: date) -> None:
     activities = fetch_activities(d)
     health     = fetch_health(d)
-    act_block, health_block = render(d, activities, health)
+    act_body, health_body = render_bodies(d, activities, health)
     path = note_path(d)
 
     if path.exists():
         existing = path.read_text()
-        updated  = refresh_auto_blocks(existing, act_block, health_block)
+        updated  = refresh_auto_sections(existing, act_body, health_body)
         if updated == existing:
             print(f"[INFO] {path.name}: unchanged", flush=True)
         else:
             atomic_write(path, updated)
-            print(f"[INFO] {path.name}: auto blocks refreshed ({len(activities)} activities)", flush=True)
+            print(f"[INFO] {path.name}: refreshed ({len(activities)} activities)", flush=True)
     else:
-        atomic_write(path, build_full_note(d, act_block, health_block))
+        atomic_write(path, build_full_note(d, act_body, health_body))
         print(f"[INFO] {path.name}: created ({len(activities)} activities)", flush=True)
     ensure_year_index(d.year)
 
 
 def write_today_skeleton(d: date) -> None:
-    """Create today's note if it doesn't exist yet — empty auto blocks so the
+    """Create today's note if it doesn't exist yet — empty auto sections so the
     Journal section is ready to type into."""
     path = note_path(d)
     if path.exists():
         return
-    act_block, health_block = render(d, [], fetch_health(d))
-    atomic_write(path, build_full_note(d, act_block, health_block))
+    act_body, health_body = render_bodies(d, [], fetch_health(d))
+    atomic_write(path, build_full_note(d, act_body, health_body))
     print(f"[INFO] {path.name}: skeleton created for today", flush=True)
     ensure_year_index(d.year)
 
