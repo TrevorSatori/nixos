@@ -31,6 +31,11 @@
 
       # --- Media & Books ---
 
+      silverbullet.lo-pan.com {
+        import cf_tls
+        reverse_proxy localhost:3005
+      }
+
       freshrss.lo-pan.com {
         import cf_tls
         reverse_proxy localhost:1080
@@ -107,6 +112,14 @@
         reverse_proxy 127.0.0.1:8222
       }
 
+      paperless.lo-pan.com {
+        import cf_tls
+        reverse_proxy 127.0.0.1:28981 {
+          header_up Host {host}
+          header_up X-Real-IP {remote_host}
+        }
+      }
+
       matrix.lo-pan.com {
         import cf_tls
         reverse_proxy localhost:6167
@@ -117,6 +130,13 @@
         reverse_proxy localhost:5232
       }
 
+
+      # --- Monitoring ---
+
+      grafana.lo-pan.com {
+        import cf_tls
+        reverse_proxy localhost:3010
+      }
       syncthing.lo-pan.com {
         import cf_tls
         reverse_proxy localhost:8384

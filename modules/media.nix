@@ -81,7 +81,18 @@ in
   systemd.services.audiobookshelf.serviceConfig = hardenedConfig // {
     ReadWritePaths = [ "/var/lib/audiobookshelf" "/data/media/audiobooks" ];
   };
-
+  
+  # ---------------------------------------------------------------------------
+  # Apprise Microservice (via OCI Container)
+  # ---------------------------------------------------------------------------
+  virtualisation.podman.enable = true;
+  virtualisation.oci-containers.containers.apprise-api = {
+    image = "docker.io/caronc/apprise:latest";
+    ports = [ "127.0.0.1:8000:8000" ];
+    environment = {
+      APPRISE_STATEFUL_MODE = "simple";
+    };
+  };
   # ---------------------------------------------------------------------------
   # Komga (Comics & Manga)
   # ---------------------------------------------------------------------------

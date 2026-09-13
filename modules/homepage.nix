@@ -169,6 +169,14 @@
       {
         "Management & Tools" = [
           {
+            SilverBullet = {
+              icon = "silverbullet.png";
+              href = "htts://silverbullet.lo-pan.com";
+              description = "Extensible Markdown PKM";
+              ping = "http://127.0.0.1:3005";
+            };
+          }
+          {
             Radicale = {
               icon = "radicale.png";
               href = "https://dav.lo-pan.com";
@@ -181,6 +189,22 @@
               icon = "vaultwarden.png";
               href = "https://vault.lo-pan.com";
               description = "Password Manager";
+            };
+          }
+          {
+            "Paperless-ngx" = {
+              icon = "paperless.png";
+              href = "https://paperless.lo-pan.com";
+              description = "Document Management System";
+              ping = "http://127.0.0.1:28981";
+            };
+          }
+          {
+            Grafana = {
+              icon = "grafana.png";
+              href = "http://lo-pan:3010";
+              description = "Activity & Analytics Dashboards";
+              ping = "http://127.0.0.1:3010";
             };
           }
           {

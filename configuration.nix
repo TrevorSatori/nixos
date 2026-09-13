@@ -112,8 +112,10 @@
     1080  # FreshRSS
     2283  # Immich
     3000  # Homepage Dashboard
+    3005  # SilverBullet
     3001  # Uptime Kuma
     7878  # Radarr
+    8000  # Apprise Microservice
     8080  # qBittorrent
     8082  # Calibre
     8096  # Jellyfin
