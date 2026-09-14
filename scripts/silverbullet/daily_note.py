@@ -495,11 +495,21 @@ title: "Daily Notes {year}"
 ---
 # Daily Notes {year}
 
+## Latest
 ${{query[[
   from p = index.pages("daily")
   where p.year == {year}
-  order by p.date asc
+  order by p.date desc
+  limit 5
   select "- [[" .. p.name .. "|" .. p.date .. "]]"
+]]}}
+
+${{query[[
+  from p = index.pages("daily")
+  where p.year == {year}
+  group by string.sub(p.date, 6, 7)
+  order by key asc
+  select render_month_group(key, group)
 ]]}}
 '''
 
