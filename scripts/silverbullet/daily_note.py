@@ -445,13 +445,20 @@ VITAMINS_TEMPLATE = SPACE_PATH / "configs" / "vitamins.md"
 
 
 def _vitamins_body() -> str:
-    """Read the vitamins template file; return its contents (or empty if
-    missing). Only used when creating a *new* daily note — never overwrites
-    an existing note's Vitamins section."""
+    """Read the vitamins template file and return contents *without* any YAML
+    frontmatter (frontmatter is meta about the template page itself; the
+    daily-note writer only wants the body). Only used when creating a *new*
+    daily note — never overwrites an existing note's Vitamins section."""
     try:
-        return VITAMINS_TEMPLATE.read_text().strip()
+        text = VITAMINS_TEMPLATE.read_text()
     except FileNotFoundError:
         return ""
+    # Strip a leading YAML frontmatter block if present
+    if text.startswith("---\n"):
+        end = text.find("\n---\n", 4)
+        if end != -1:
+            text = text[end + 5:]
+    return text.strip()
 
 
 def build_full_note(d: date, act_body: str, health_body: str) -> str:
