@@ -29,6 +29,7 @@
       "/var/backup/vaultwarden"  # Vaultwarden DB dumps
       "/data/media/immich"       # Immich original photos/videos
       "/data/media/photos"       # External libraries
+      "/data/media/silverbullet" # SilverBullet PKM — daily notes, book/comic notes, configs
       "/var/backup/postgresql"   # Immich Postgres DB dumps
     ];
 
