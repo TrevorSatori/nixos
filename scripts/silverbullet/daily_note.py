@@ -425,7 +425,7 @@ def fetch_health(d: date) -> dict:
 # renamed by the user — the writer identifies them by heading text and rewrites
 # their body in place. Any other section (## Journal, ## Tomorrow, whatever the
 # user adds) is left untouched.
-AUTO_SECTIONS = ("Activity", "Health")
+AUTO_SECTIONS = ("📊 Activity", "❤️ Health")
 
 
 def render_bodies(d: date, activities: list[dict], health: dict) -> tuple[str, str]:
@@ -468,10 +468,10 @@ def build_full_note(d: date, act_body: str, health_body: str) -> str:
     return (
         f"---\ncreated: {datetime.now(LOCAL_TZ).isoformat(timespec='seconds')}\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\n---\n"
         f"# {day_name}\n\n"
-        f"## Activity\n{act_body}\n\n"
-        f"## Health\n{health_body}\n\n"
-        f"## Vitamins\n{vit_block}\n"
-        f"## Journal\n"
+        f"## 📊 Activity\n{act_body}\n\n"
+        f"## ❤️ Health\n{health_body}\n\n"
+        f"## 💊 Vitamins\n{vit_block}\n"
+        f"## ✍️ Journal\n"
     )
 
 
@@ -495,21 +495,11 @@ title: "Daily Notes {year}"
 ---
 # Daily Notes {year}
 
-## Latest
 ${{query[[
   from p = index.pages("daily")
   where p.year == {year}
-  order by p.date desc
-  limit 5
+  order by p.date asc
   select "- [[" .. p.name .. "|" .. p.date .. "]]"
-]]}}
-
-${{query[[
-  from p = index.pages("daily")
-  where p.year == {year}
-  group by string.sub(p.date, 6, 7)
-  order by key asc
-  select render_month_group(key, group)
 ]]}}
 '''
 
