@@ -139,7 +139,7 @@ def mark_book_finished(book_slug, date_finished):
     content = book_file.read_text()
     content = content.replace(
         'status: "🎧 listening"',
-        f'status: "🌟 finished"\ndate_finished: {date_finished}',
+        f'status: "finished"\ndate_finished: {date_finished}',
     )
     book_file.write_text(content)
     print(f"[INFO] Marked finished: books/{book_slug}.md", flush=True)

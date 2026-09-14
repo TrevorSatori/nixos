@@ -155,7 +155,7 @@ def mark_series_finished(series_slug, date_finished):
     content = note_path.read_text()
     content = content.replace(
         'status: "💥 reading"',
-        f'status: "🌟 finished"\ndate_finished: {date_finished}',
+        f'status: "finished"\ndate_finished: {date_finished}',
     )
     note_path.write_text(content)
     print(f"[INFO] Marked finished: comics/{series_slug}.md", flush=True)
