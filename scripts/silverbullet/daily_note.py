@@ -52,6 +52,15 @@ ICON = {
     ("komga", "comic"):          "💥",
 }
 
+# Aggregation: consecutive same-source/type/title events within this gap merge
+# into one session. Simple algorithm — only compares to the immediately previous
+# session (a different-title event between two same-title events splits them).
+AGGREGATION_GAP_MIN = 15
+# Sources whose events are already atomic (one real-world session per event) —
+# don't merge Garmin activities (morning run vs. evening run must stay separate)
+# and comic completions have no time data.
+NON_AGGREGATED_SOURCES = {"garmin", "komga"}
+
 # Audiobook notes live under books/, comic notes under comics/. Both are
 # markdown with `tags: book` or `tags: comic` respectively; volume completions
 # appended as "## Vol. N · <title>\n- Finished: YYYY-MM-DD" sections.
@@ -164,7 +173,9 @@ def _linkify_book(title: str) -> str:
     return f"[[{slug}|{title}]]" if slug else title
 
 
-def format_activity_line(a: dict) -> str:
+def format_activity_line(a: dict, raw: bool = False) -> str:
+    """Render one row. `raw=True` forces single-event format (used inside the
+    collapsible details block below the aggregated list)."""
     icon = ICON.get((a["source"], a["type"]), "📝")
     if a.get("note_slug"):
         title = f"[[{a['note_slug']}|{a['title']}]]"
@@ -175,10 +186,87 @@ def format_activity_line(a: dict) -> str:
     if a.get("time_local"):
         hhmm    = a["time_local"].strftime("%H:%M")
         minutes = max(1, a["duration_s"] // 60)
+        event_count = 1 if raw else a.get("event_count", 1)
+        if event_count > 1 and a.get("end_time"):
+            end_hhmm = a["end_time"].strftime("%H:%M")
+            return f"- {hhmm}–{end_hhmm} {icon} {title} — {minutes} min ({event_count} events)"
         return f"- {hhmm} {icon} {title} — {minutes} min"
     if a.get("suffix"):
         return f"- {icon} {title} — {a['suffix']}"
     return f"- {icon} {title}"
+
+
+def aggregate_activities(activities: list[dict]) -> list[dict]:
+    """Merge consecutive same-source/type/title events within AGGREGATION_GAP_MIN.
+    Simple algorithm: only compares to immediately previous session. See rule
+    table in NON_AGGREGATED_SOURCES comment for which sources bypass merging."""
+    epoch = datetime.min.replace(tzinfo=LOCAL_TZ)
+    sorted_acts = sorted(activities, key=lambda a: a.get("time_local") or epoch)
+    out: list[dict] = []
+    for a in sorted_acts:
+        # date-only events (comic completions) or missing time — pass through
+        if not a.get("time_local"):
+            out.append({**a, "end_time": None, "event_count": 1})
+            continue
+        end_time = a["time_local"] + timedelta(seconds=a["duration_s"])
+        should_merge = (
+            out
+            and a["source"] not in NON_AGGREGATED_SOURCES
+            and out[-1].get("end_time") is not None
+            and out[-1].get("source") == a["source"]
+            and out[-1].get("type")   == a["type"]
+            and out[-1].get("title")  == a["title"]
+            and (a["time_local"] - out[-1]["end_time"]).total_seconds() / 60 < AGGREGATION_GAP_MIN
+        )
+        if should_merge:
+            out[-1]["end_time"]    = end_time
+            out[-1]["duration_s"] += a["duration_s"]
+            out[-1]["event_count"] += 1
+        else:
+            out.append({**a, "end_time": end_time, "event_count": 1})
+    return out
+
+
+def build_summary_line(activities: list[dict]) -> str:
+    """One-line total per (source, type), ordered alphabetically by source."""
+    totals: dict[tuple[str, str], int] = {}
+    for a in activities:
+        if not a.get("time_local"):
+            continue  # comic completions have no meaningful duration
+        totals[(a["source"], a["type"])] = totals.get((a["source"], a["type"]), 0) + a["duration_s"]
+    if not totals:
+        return ""
+    parts = []
+    for (source, typ), sec in sorted(totals.items()):
+        icon = ICON.get((source, typ), "📝")
+        dur  = f"{sec / 3600:.1f} hr" if sec >= 3600 else f"{sec // 60} min"
+        parts.append(f"{icon} {dur}")
+    return "**Today**: " + " · ".join(parts)
+
+
+def render_activity_body(activities: list[dict]) -> str:
+    """Full body of ## Activity: summary line + aggregated list + optional
+    collapsible raw events block."""
+    if not activities:
+        return "_No activity recorded._"
+    aggregated = aggregate_activities(activities)
+    summary    = build_summary_line(activities)
+
+    parts: list[str] = []
+    if summary:
+        parts.append(summary)
+        parts.append("")
+    parts.extend(format_activity_line(a) for a in aggregated)
+
+    # Only render raw-events details block when aggregation actually collapsed rows
+    if len(activities) > len(aggregated):
+        parts.append("")
+        parts.append(f"<details><summary>Show raw events ({len(activities)})</summary>")
+        parts.append("")
+        parts.extend(format_activity_line(a, raw=True) for a in activities)
+        parts.append("")
+        parts.append("</details>")
+    return "\n".join(parts)
 
 
 # ── comic completions (from silverbullet notes, not influx) ──────────────────
@@ -297,10 +385,7 @@ AUTO_SECTIONS = ("Activity", "Health")
 
 
 def render_bodies(d: date, activities: list[dict], health: dict) -> tuple[str, str]:
-    if not activities:
-        act_body = "_No activity recorded._"
-    else:
-        act_body = "\n".join(format_activity_line(a) for a in activities)
+    act_body = render_activity_body(activities)
     health_body = (
         "| | |\n"
         "|---|---|\n"
