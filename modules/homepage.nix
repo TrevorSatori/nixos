@@ -202,7 +202,7 @@
           {
             Grafana = {
               icon = "grafana.png";
-              href = "http://lo-pan:3010";
+              href = "https://grafana.lo-pan.com";
               description = "Activity & Analytics Dashboards";
               ping = "http://127.0.0.1:3010";
             };
