@@ -175,7 +175,8 @@ def _linkify_book(title: str) -> str:
 
 def format_activity_line(a: dict, raw: bool = False) -> str:
     """Render one row. `raw=True` forces single-event format (used inside the
-    collapsible details block below the aggregated list)."""
+    collapsible details block below the aggregated list). Dot separators + bold
+    time keep the line scannable when many rows stack."""
     icon = ICON.get((a["source"], a["type"]), "📝")
     if a.get("note_slug"):
         title = f"[[{a['note_slug']}|{a['title']}]]"
@@ -189,11 +190,11 @@ def format_activity_line(a: dict, raw: bool = False) -> str:
         event_count = 1 if raw else a.get("event_count", 1)
         if event_count > 1 and a.get("end_time"):
             end_hhmm = a["end_time"].strftime("%H:%M")
-            return f"- {hhmm}–{end_hhmm} {icon} {title} — {minutes} min ({event_count} events)"
-        return f"- {hhmm} {icon} {title} — {minutes} min"
+            return f"- **{hhmm}–{end_hhmm}**  {icon}  {title}  ·  {minutes} min  ·  {event_count} events"
+        return f"- **{hhmm}**  {icon}  {title}  ·  {minutes} min"
     if a.get("suffix"):
-        return f"- {icon} {title} — {a['suffix']}"
-    return f"- {icon} {title}"
+        return f"- {icon}  {title}  ·  {a['suffix']}"
+    return f"- {icon}  {title}"
 
 
 def aggregate_activities(activities: list[dict]) -> list[dict]:
@@ -227,8 +228,12 @@ def aggregate_activities(activities: list[dict]) -> list[dict]:
     return out
 
 
+def _fmt_dur(sec: int) -> str:
+    return f"{sec / 3600:.1f} hr" if sec >= 3600 else f"{sec // 60} min"
+
+
 def build_summary_line(activities: list[dict]) -> str:
-    """One-line total per (source, type), ordered alphabetically by source."""
+    """Per-(source,type) totals, alphabetical by source, with grand total."""
     totals: dict[tuple[str, str], int] = {}
     for a in activities:
         if not a.get("time_local"):
@@ -239,33 +244,38 @@ def build_summary_line(activities: list[dict]) -> str:
     parts = []
     for (source, typ), sec in sorted(totals.items()):
         icon = ICON.get((source, typ), "📝")
-        dur  = f"{sec / 3600:.1f} hr" if sec >= 3600 else f"{sec // 60} min"
-        parts.append(f"{icon} {dur}")
-    return "**Today**: " + " · ".join(parts)
+        parts.append(f"{icon} {_fmt_dur(sec)}")
+    grand = sum(totals.values())
+    return f"**Today**  ·  " + "  ·  ".join(parts) + f"  ·  **{_fmt_dur(grand)}**"
 
 
 def render_activity_body(activities: list[dict]) -> str:
-    """Full body of ## Activity: summary line + aggregated list + optional
-    collapsible raw events block."""
+    """Full body of ## Activity: blank line + summary + blank line + aggregated
+    list + optional collapsible raw-events block. Blank line at the start puts
+    breathing room between the H2 heading and the summary. The <details> block
+    keeps its contents contiguous (no blank lines inside — CommonMark closes
+    HTML blocks on blank lines)."""
     if not activities:
         return "_No activity recorded._"
     aggregated = aggregate_activities(activities)
     summary    = build_summary_line(activities)
 
-    parts: list[str] = []
+    parts: list[str] = [""]  # leading blank line under ## Activity
     if summary:
         parts.append(summary)
         parts.append("")
     parts.extend(format_activity_line(a) for a in aggregated)
 
-    # Only render raw-events details block when aggregation actually collapsed rows
     if len(activities) > len(aggregated):
         parts.append("")
-        parts.append(f"<details><summary>Show raw events ({len(activities)})</summary>")
-        parts.append("")
-        parts.extend(format_activity_line(a, raw=True) for a in activities)
-        parts.append("")
-        parts.append("</details>")
+        # Note the trailing \n on each contiguous line inside <details>:
+        # blank lines inside would terminate the HTML block per CommonMark.
+        raw_bullets = "\n".join(format_activity_line(a, raw=True) for a in activities)
+        parts.append(
+            f"<details><summary>Show raw events ({len(activities)})</summary>\n"
+            f"{raw_bullets}\n"
+            "</details>"
+        )
     return "\n".join(parts)
 
 
