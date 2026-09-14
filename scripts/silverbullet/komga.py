@@ -5,7 +5,7 @@ import os
 import re
 import time
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 SPACE_PATH = Path(os.environ.get("SILVERBULLET_SPACE", "/data/media/silverbullet"))
@@ -17,6 +17,10 @@ POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "300"))
 STATE_FILE = SPACE_PATH / ".komga_state.json"
 COMICS_DIR = SPACE_PATH / "comics"
 COVERS_DIR = COMICS_DIR / "covers"
+
+
+def _iso_now():
+    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
 def slug(text):
@@ -119,6 +123,7 @@ def create_series_note(series_id, series_slug, title, cover_rel, date_started):
     cover_block = f"![cover]({cover_rel})\n\n" if cover_rel else ""
     content = (
         f"---\n"
+        f"created: {_iso_now()}\n"
         f"tags: comic\n"
         f'title: "{title}"\n'
         f'slug: "{series_slug}"\n'

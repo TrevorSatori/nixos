@@ -4,7 +4,7 @@ import os
 import re
 import time
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 SPACE_PATH = Path(os.environ.get("SILVERBULLET_SPACE", "/data/media/silverbullet"))
@@ -16,6 +16,10 @@ FINISH_THRESHOLD = 0.98
 STATE_FILE = SPACE_PATH / ".abs_state.json"
 BOOKS_DIR = SPACE_PATH / "books"
 COVERS_DIR = BOOKS_DIR / "covers"
+
+
+def _iso_now():
+    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
 def slug(text):
@@ -113,6 +117,7 @@ def write_book_note(book_slug, title, author, narrator, duration_hours, cover_re
     duration_line = f"**Duration:** {duration_hours:.1f} hrs\n" if duration_hours else ""
     content = (
         f"---\n"
+        f"created: {_iso_now()}\n"
         f"tags: book\n"
         f'title: "{title}"\n'
         f'author: "{author}"{narrator_meta}\n'

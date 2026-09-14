@@ -329,7 +329,7 @@ def build_full_note(d: date, act_body: str, health_body: str) -> str:
     vitamins  = _vitamins_body()
     vit_block = f"\n{vitamins}\n" if vitamins else "\n"
     return (
-        f"---\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\n---\n"
+        f"---\ncreated: {datetime.now(LOCAL_TZ).isoformat(timespec=\"seconds\")}\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\n---\n"
         f"# {day_name}\n\n"
         f"## Activity\n{act_body}\n\n"
         f"## Health\n{health_body}\n\n"
