@@ -354,6 +354,7 @@ def replace_section_body(text: str, title: str, new_body: str) -> str:
 YEAR_INDEX_TEMPLATE = '''---
 tags: yearly_journal
 year: {year}
+title: "Daily Notes {year}"
 ---
 # Daily Notes {year}
 
