@@ -173,28 +173,60 @@ def _linkify_book(title: str) -> str:
     return f"[[{slug}|{title}]]" if slug else title
 
 
-def format_activity_line(a: dict, raw: bool = False) -> str:
-    """Render one row. `raw=True` forces single-event format (used inside the
-    collapsible details block below the aggregated list). Dot separators + bold
-    time keep the line scannable when many rows stack."""
-    icon = ICON.get((a["source"], a["type"]), "📝")
+def _title_for(a: dict) -> str:
+    """Resolve display title (wiki-linked if the source has notes)."""
     if a.get("note_slug"):
-        title = f"[[{a['note_slug']}|{a['title']}]]"
-    elif a["source"] in ("abs", "komga"):
-        title = _linkify_book(a["title"])
-    else:
-        title = a["title"]
+        return f"[[{a['note_slug']}|{a['title']}]]"
+    if a["source"] in ("abs", "komga"):
+        return _linkify_book(a["title"])
+    return a["title"]
+
+
+def format_activity_line(a: dict, raw: bool = False) -> str:
+    """Bullet-style row for the raw-events dropdown (single-event format).
+    Plain time, no bold. Aggregated view uses render_activity_table instead."""
+    icon  = ICON.get((a["source"], a["type"]), "📝")
+    title = _title_for(a)
     if a.get("time_local"):
         hhmm    = a["time_local"].strftime("%H:%M")
         minutes = max(1, a["duration_s"] // 60)
         event_count = 1 if raw else a.get("event_count", 1)
         if event_count > 1 and a.get("end_time"):
             end_hhmm = a["end_time"].strftime("%H:%M")
-            return f"- **{hhmm}–{end_hhmm}**  {icon}  {title}  ·  {minutes} min  ·  {event_count} events"
-        return f"- **{hhmm}**  {icon}  {title}  ·  {minutes} min"
+            return f"- {hhmm}–{end_hhmm}  {icon}  {title}  ·  {minutes} min  ·  {event_count} events"
+        return f"- {hhmm}  {icon}  {title}  ·  {minutes} min"
     if a.get("suffix"):
         return f"- {icon}  {title}  ·  {a['suffix']}"
     return f"- {icon}  {title}"
+
+
+def render_activity_table(aggregated: list[dict]) -> str:
+    """5-col table: Time | Type | Title | Duration | Events."""
+    lines = [
+        "| Time | Type | Title | Duration | Events |",
+        "|:---|:---:|:---|:---:|:---:|",
+    ]
+    for a in aggregated:
+        icon  = ICON.get((a["source"], a["type"]), "📝")
+        title = _title_for(a)
+        if a.get("time_local"):
+            hhmm = a["time_local"].strftime("%H:%M")
+            if a.get("event_count", 1) > 1 and a.get("end_time"):
+                time_str = f"{hhmm}–{a['end_time'].strftime('%H:%M')}"
+            else:
+                time_str = hhmm
+        else:
+            time_str = "—"
+        if a.get("duration_s") and a["duration_s"] > 0:
+            dur = _fmt_dur(a["duration_s"])
+        elif a.get("suffix"):
+            dur = a["suffix"]
+        else:
+            dur = ""
+        ec = a.get("event_count", 1)
+        events = str(ec) if ec > 1 else ""
+        lines.append(f"| {time_str} | {icon} | {title} | {dur} | {events} |")
+    return "\n".join(lines)
 
 
 def aggregate_activities(activities: list[dict]) -> list[dict]:
@@ -229,7 +261,9 @@ def aggregate_activities(activities: list[dict]) -> list[dict]:
 
 
 def _fmt_dur(sec: int) -> str:
-    return f"{sec / 3600:.1f} hr" if sec >= 3600 else f"{sec // 60} min"
+    if sec >= 3600:
+        return f"{sec / 3600:.1f} hr"
+    return f"{max(1, sec // 60)} min"
 
 
 def build_summary_line(activities: list[dict]) -> str:
@@ -264,7 +298,7 @@ def render_activity_body(activities: list[dict]) -> str:
     if summary:
         parts.append(summary)
         parts.append("")
-    parts.extend(format_activity_line(a) for a in aggregated)
+    parts.append(render_activity_table(aggregated))
 
     if len(activities) > len(aggregated):
         parts.append("")
