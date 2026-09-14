@@ -93,7 +93,7 @@ in
   };
 
   # ---------------------------------------------------------------------------
-  # Daily Note Writer — one-shot service invoked by timer at 00:05 nightly.
+  # Daily Note Writer — one-shot service invoked by timer at 12:00 (noon) daily.
   # Populates yesterday's Journal/YYYY/MM/YYYY-MM-DD.md with activity + health
   # summary blocks from InfluxDB, and creates today's blank skeleton.
   # Idempotent — only content between <!-- BEGIN AUTO --> markers is rewritten.
@@ -128,11 +128,11 @@ in
   };
 
   systemd.timers.daily-note-writer = {
-    description = "Trigger daily-note-writer at 00:05 local time";
+    description = "Trigger daily-note-writer at 12:00 (noon) local time";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "*-*-* 00:05:00";
-      Persistent = true;   # if the machine was off at 00:05, catch up on next boot
+      OnCalendar = "*-*-* 12:00:00";
+      Persistent = true;   # if the machine was off at noon, catch up on next boot
     };
   };
 
