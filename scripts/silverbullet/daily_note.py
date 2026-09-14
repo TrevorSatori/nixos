@@ -48,6 +48,7 @@ ICON = {
     ("garmin", "yoga"):          "🧘",
     ("garmin", "swimming"):      "🏊",
     ("garmin", "cardio"):        "❤️",
+    ("garmin", "motorcycle"):    "🏍️",
     ("komga", "comic"):          "💥",
 }
 

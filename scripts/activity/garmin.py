@@ -40,6 +40,8 @@ STATE_FILE = STATE_DIR / "state.json"
 
 ACTIVITY_TYPE_MAP = {
     "running":              "running",
+    "motorcycling_v2":     "motorcycle",
+    "motorcycling":        "motorcycle",
     "treadmill_running":    "treadmill",
     "indoor_running":       "treadmill",
     "walking":              "walking",
