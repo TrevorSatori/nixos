@@ -121,7 +121,7 @@ def fetch_activities(d: date) -> list[dict]:
     out = []
     for r in rows:
         try:
-            ts_utc = datetime.strptime(r["_time"].split(".")[0], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            ts_utc = datetime.strptime(r["_time"].rstrip("Z").split(".")[0], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
         except Exception:
             continue
         out.append({
