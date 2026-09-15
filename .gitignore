@@ -2,3 +2,7 @@
 *.log
 *_log.txt
 *_output.txt
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo

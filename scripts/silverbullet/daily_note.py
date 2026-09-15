@@ -49,6 +49,7 @@ ICON = {
     ("garmin", "swimming"):      "🏊",
     ("garmin", "cardio"):        "❤️",
     ("garmin", "motorcycle"):    "🏍️",
+    ("garmin", "pornography"):   "🔞",
     ("komga", "comic"):          "💥",
 }
 
@@ -66,6 +67,8 @@ NON_AGGREGATED_SOURCES = {"garmin", "komga"}
 # appended as "## Vol. N · <title>\n- Finished: YYYY-MM-DD" sections.
 BOOKS_DIR  = Path(os.environ.get("SILVERBULLET_BOOKS_DIR",  "/data/media/silverbullet/books"))
 COMICS_DIR = Path(os.environ.get("SILVERBULLET_COMICS_DIR", "/data/media/silverbullet/comics"))
+MOVIES_DIR = Path(os.environ.get("SILVERBULLET_MOVIES_DIR", "/data/media/silverbullet/movies"))
+SHOWS_DIR  = Path(os.environ.get("SILVERBULLET_SHOWS_DIR",  "/data/media/silverbullet/shows"))
 
 
 # ── influx query helper ──────────────────────────────────────────────────────
@@ -173,12 +176,70 @@ def _linkify_book(title: str) -> str:
     return f"[[{slug}|{title}]]" if slug else title
 
 
+FRONT_SEASON = re.compile(r'^season:\s*(\d+)', re.MULTILINE)
+# "Series - s01e02 - Episode Title" → capture series + season
+_SHOW_TITLE_RX = re.compile(r'^(.+?)\s*-\s*s(\d+)e(\d+)\s*-\s*(.+)$')
+
+
+def _media_note_lookup() -> tuple[dict[str, str], dict[tuple[str, int], str]]:
+    """Build (movies_by_title, shows_by_(title,season)) from note frontmatter."""
+    movies: dict[str, str] = {}
+    shows:  dict[tuple[str, int], str] = {}
+    if MOVIES_DIR.exists():
+        for p in MOVIES_DIR.glob("*.md"):
+            if p.name == "movies.md":
+                continue
+            try: text = p.read_text()
+            except Exception: continue
+            m = FRONT_TITLE.search(text)
+            if m:
+                movies[m.group(1).strip()] = f"movies/{p.stem}"
+    if SHOWS_DIR.exists():
+        for p in SHOWS_DIR.glob("*.md"):
+            if p.name == "shows.md":
+                continue
+            try: text = p.read_text()
+            except Exception: continue
+            t = FRONT_TITLE.search(text)
+            s = FRONT_SEASON.search(text)
+            if t and s:
+                shows[(t.group(1).strip(), int(s.group(1)))] = f"shows/{p.stem}"
+    return movies, shows
+
+
+_media_cache: tuple[dict[str, str], dict[tuple[str, int], str]] | None = None
+
+
+def _linkify_media(typ: str, title: str) -> str:
+    """Wiki-link the title if a matching movie/show note exists, else plain."""
+    global _media_cache
+    if _media_cache is None:
+        _media_cache = _media_note_lookup()
+    movies, shows = _media_cache
+    slug = None
+    if typ == "movie":
+        slug = movies.get(title)
+    elif typ == "tv_episode":
+        m = _SHOW_TITLE_RX.match(title)
+        if m:
+            series, season = m.group(1).strip(), int(m.group(2))
+            ep_num, ep_title = int(m.group(3)), m.group(4).strip()
+            season_slug = shows.get((series, season))
+            if season_slug:
+                # Deep-link to the episode's `## Episode N — Title` header
+                anchor = f"Episode {ep_num} — {ep_title}" if ep_title else f"Episode {ep_num}"
+                return f"[[{season_slug}#{anchor}|{title}]]"
+    return f"[[{slug}|{title}]]" if slug else title
+
+
 def _title_for(a: dict) -> str:
     """Resolve display title (wiki-linked if the source has notes)."""
     if a.get("note_slug"):
         return f"[[{a['note_slug']}|{a['title']}]]"
     if a["source"] in ("abs", "komga"):
         return _linkify_book(a["title"])
+    if a["source"] == "jellyfin":
+        return _linkify_media(a["type"], a["title"])
     return a["title"]
 
 
@@ -407,16 +468,71 @@ def fmt_bpm(s: str | None) -> str:
     except: return "—"
 
 
+def fetch_scalar_tagged(d: date, metric: str, tag_key: str) -> str | None:
+    """Return the value of `tag_key` from the last biometric point matching
+    (metric) within date d. Used to pull enum-ish string tags like
+    training_readiness.status back out of InfluxDB."""
+    start, stop = day_range_utc(d)
+    flux = f'''from(bucket: "{BIOMETRICS_BUCKET}")
+  |> range(start: {start}, stop: {stop})
+  |> filter(fn: (r) => r._measurement == "biometric" and r.metric == "{metric}")
+  |> last()
+  |> keep(columns: ["{tag_key}"])'''
+    rows = influx_query(BIOMETRICS_BUCKET, flux)
+    if not rows:
+        return None
+    val = rows[0].get(tag_key)
+    return val if val not in (None, "") else None
+
+
 def fetch_health(d: date) -> dict:
-    bb_first = fetch_scalar(d, "body_battery", "first")
-    bb_last  = fetch_scalar(d, "body_battery", "last")
-    bb = f"{fmt_int(bb_first)} → {fmt_int(bb_last)}" if bb_first or bb_last else "—"
+    sleep_score = fetch_scalar(d, "sleep_score",      "last")
+    sleep_dur   = fetch_scalar(d, "sleep_duration_s", "last")
+    hrv         = fetch_scalar(d, "hrv_overnight",    "last")
+    rhr         = fetch_scalar(d, "resting_hr",       "last")
+    ready_score = fetch_scalar(d, "training_readiness", "last")
+    ready_lvl   = fetch_scalar_tagged(d, "training_readiness", "status")
+    resp        = fetch_scalar(d, "respiration_sleep_avg", "last")
+    bb_first    = fetch_scalar(d, "body_battery",     "first")
+    bb_last     = fetch_scalar(d, "body_battery",     "last")
     return {
-        "resting_hr":   fmt_bpm(fetch_scalar(d, "resting_hr",   "last")),
-        "steps":        fmt_int(fetch_scalar(d, "steps",        "sum")),
-        "body_battery": bb,
-        "avg_stress":   fmt_int(fetch_scalar(d, "stress",       "mean")),
+        "sleep_score":    _fmt_num(sleep_score),
+        "sleep_duration": _fmt_hm(sleep_dur),
+        "hrv":            _fmt_num(hrv),
+        "rhr":            _fmt_num(rhr),
+        "ready_score":    _fmt_num(ready_score),
+        "ready_level":    ready_lvl,
+        "respiration":    _fmt_num(resp, decimals=0),
+        "body_battery":   f"{fmt_int(bb_first)} → {fmt_int(bb_last)}" if (bb_first or bb_last) else None,
+        "steps":          fmt_int(fetch_scalar(d, "steps",  "sum")),
+        "stress":         _fmt_num(fetch_scalar(d, "stress", "mean")),
     }
+
+
+def _fmt_num(s: str | None, decimals: int = 0) -> str | None:
+    if s is None:
+        return None
+    try:
+        f = float(s)
+        return f"{int(round(f))}" if decimals == 0 else f"{f:.{decimals}f}"
+    except (TypeError, ValueError):
+        return None
+
+
+def _fmt_hm(seconds: str | None) -> str | None:
+    if seconds is None:
+        return None
+    try:
+        total = int(float(seconds))
+    except (TypeError, ValueError):
+        return None
+    h, rem = divmod(total, 3600)
+    m = rem // 60
+    if h and m:
+        return f"{h}h {m}m"
+    if h:
+        return f"{h}h"
+    return f"{m}m"
 
 
 # ── note rendering ───────────────────────────────────────────────────────────
@@ -428,16 +544,53 @@ def fetch_health(d: date) -> dict:
 AUTO_SECTIONS = ("📊 Activity", "❤️ Health")
 
 
+def render_health_body(h: dict) -> str:
+    """2-column table: emoji + label | value. Rows with no data are omitted.
+    Falls back to a pending-sync note if nothing is available yet."""
+    rows: list[tuple[str, str]] = []
+
+    if h["sleep_score"] or h["sleep_duration"]:
+        val = h["sleep_score"] or "—"
+        if h["sleep_duration"]:
+            val = f"{val} · {h['sleep_duration']}"
+        rows.append(("😴 Sleep", val))
+
+    if h["hrv"]:
+        rows.append(("🫀 HRV", h["hrv"]))
+
+    if h["rhr"]:
+        rows.append(("💓 RHR", h["rhr"]))
+
+    if h["ready_score"] or h["ready_level"]:
+        val = h["ready_score"] or "—"
+        if h["ready_level"]:
+            val = f"{val} · {h['ready_level']}"
+        rows.append(("🎯 Readiness", val))
+
+    if h["respiration"]:
+        rows.append(("🫁 Resp", h["respiration"]))
+
+    if h["body_battery"]:
+        rows.append(("🔋 Body Battery", h["body_battery"]))
+
+    if h["steps"] and h["steps"] != "—":
+        rows.append(("👟 Steps", h["steps"]))
+
+    if h["stress"]:
+        rows.append(("😌 Avg Stress", h["stress"]))
+
+    if not rows:
+        return "_pending sync_"
+
+    lines = ["| | |", "|---|---|"]
+    for label, val in rows:
+        lines.append(f"| {label} | {val} |")
+    return "\n".join(lines)
+
+
 def render_bodies(d: date, activities: list[dict], health: dict) -> tuple[str, str]:
-    act_body = render_activity_body(activities)
-    health_body = (
-        "| | |\n"
-        "|---|---|\n"
-        f"| Resting HR   | {health['resting_hr']} |\n"
-        f"| Steps        | {health['steps']} |\n"
-        f"| Body Battery | {health['body_battery']} |\n"
-        f"| Avg Stress   | {health['avg_stress']} |"
-    )
+    act_body    = render_activity_body(activities)
+    health_body = render_health_body(health)
     return act_body, health_body
 
 
@@ -466,7 +619,7 @@ def build_full_note(d: date, act_body: str, health_body: str) -> str:
     vitamins  = _vitamins_body()
     vit_block = f"\n{vitamins}\n" if vitamins else "\n"
     return (
-        f"---\ncreated: {datetime.now(LOCAL_TZ).isoformat(timespec='seconds')}\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\n---\n"
+        f"---\ncreated: {datetime.now(LOCAL_TZ).isoformat(timespec='seconds')}\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\njournal: \"[[journal/{d.year}]]\"\n---\n"
         f"# {day_name}\n\n"
         f"## 📊 Activity\n{act_body}\n\n"
         f"## ❤️ Health\n{health_body}\n\n"
@@ -475,7 +628,18 @@ def build_full_note(d: date, act_body: str, health_body: str) -> str:
     )
 
 
-EMPTY_HEALTH = {"resting_hr": "—", "steps": "—", "body_battery": "—", "avg_stress": "—"}
+EMPTY_HEALTH = {
+    "sleep_score":    None,
+    "sleep_duration": None,
+    "hrv":            None,
+    "rhr":            None,
+    "ready_score":    None,
+    "ready_level":    None,
+    "respiration":    None,
+    "body_battery":   None,
+    "steps":          None,
+    "stress":         None,
+}
 
 
 def replace_section_body(text: str, title: str, new_body: str) -> str:
@@ -515,8 +679,10 @@ def ensure_year_index(year: int) -> None:
 
 
 def refresh_auto_sections(existing: str, act_body: str, health_body: str) -> str:
-    out = replace_section_body(existing,  "Activity", act_body)
-    out = replace_section_body(out,       "Health",   health_body)
+    # Section titles include their emoji prefix — must match what
+    # build_full_note wrote, otherwise the regex sub is a no-op.
+    out = replace_section_body(existing,  "📊 Activity", act_body)
+    out = replace_section_body(out,       "❤️ Health",   health_body)
     return out
 
 
@@ -576,13 +742,25 @@ def write_today_skeleton(d: date) -> None:
 # ── main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    if len(sys.argv) > 1:
-        d = date.fromisoformat(sys.argv[1])
-        write_note_for(d)
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("date", nargs="?", help="ISO date to regen (YYYY-MM-DD). Default: skeleton for today.")
+    p.add_argument("--backfill", type=int, metavar="N",
+                   help="Refresh the last N days' notes (creates any missing).")
+    args = p.parse_args()
+
+    today = datetime.now(LOCAL_TZ).date()
+
+    if args.backfill is not None:
+        for i in range(args.backfill):
+            write_note_for(today - timedelta(days=i))
         return
-    today     = datetime.now(LOCAL_TZ).date()
-    yesterday = today - timedelta(days=1)
-    write_note_for(yesterday)
+
+    if args.date:
+        write_note_for(date.fromisoformat(args.date))
+        return
+
+    # Default: skeleton-only for today
     write_today_skeleton(today)
 
 

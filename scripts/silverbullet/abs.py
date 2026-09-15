@@ -123,6 +123,8 @@ def write_book_note(book_slug, title, author, narrator, duration_hours, cover_re
         f'author: "{author}"{narrator_meta}\n'
         f'slug: "{book_slug}"\n'
         f"year: {year}\n"
+        f'reading_log: "[[reading_logs/reading_log_{year}]]"\n'
+        f'catalog: "[[books]]"\n'
         f'status: "🎧 listening"\n'
         f"date_started: {date_started}{duration_meta}\n"
         f"---\n"
@@ -131,7 +133,7 @@ def write_book_note(book_slug, title, author, narrator, duration_hours, cover_re
         f"**Author:** {author}\n"
         f"{narrator_line}"
         f"{duration_line}\n"
-        f"## thoughts\n- \n"
+        f"## 💭 Thoughts\n- \n"
     )
     book_file.write_text(content)
     print(f"[INFO] Created: books/{book_slug}.md", flush=True)

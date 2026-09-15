@@ -171,7 +171,7 @@
           {
             SilverBullet = {
               icon = "silverbullet.png";
-              href = "htts://silverbullet.lo-pan.com";
+              href = "https://silverbullet.lo-pan.com";
               description = "Extensible Markdown PKM";
               ping = "http://127.0.0.1:3005";
             };

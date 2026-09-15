@@ -128,11 +128,38 @@ in
   };
 
   systemd.timers.daily-note-writer = {
-    description = "Trigger daily-note-writer at 12:00 (noon) local time";
+    description = "Create today's blank daily-note skeleton at 00:00 local time";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* 00:00:00";
+      Persistent = true;   # if the machine was off at midnight, catch up on next boot
+    };
+  };
+
+  # ---------------------------------------------------------------------------
+  # Daily Note Backfill — refreshes today + trailing 7 days at noon so late
+  # Garmin/ABS syncs land in the correct day's auto sections.
+  # ---------------------------------------------------------------------------
+  systemd.services.daily-note-writer-backfill = {
+    description = "Refresh today + trailing 7 days of daily notes";
+    after    = [ "network.target" "influxdb2.service" ];
+    environment = dailyNoteEnv;
+    serviceConfig = hardenedConfig // {
+      Type            = "oneshot";
+      ExecStart       = "${dailyNoteExec} --backfill 7";
+      User            = "media";
+      Group           = "media";
+      ReadWritePaths  = [ spacePath ];
+      EnvironmentFile = dailyNoteEnvFile;
+    };
+  };
+
+  systemd.timers.daily-note-writer-backfill = {
+    description = "Trigger 7-day backfill at 12:00 (noon) local time";
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnCalendar = "*-*-* 12:00:00";
-      Persistent = true;   # if the machine was off at noon, catch up on next boot
+      Persistent = true;
     };
   };
 

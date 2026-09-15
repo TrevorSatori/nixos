@@ -128,12 +128,14 @@ def create_series_note(series_id, series_slug, title, cover_rel, date_started):
         f'title: "{title}"\n'
         f'slug: "{series_slug}"\n'
         f"year: {date_started[:4]}\n"
+        f'reading_log: "[[reading_logs/reading_log_{date_started[:4]}]]"\n'
+        f'catalog: "[[comics]]"\n'
         f'status: "💥 reading"\n'
         f"date_started: {date_started}\n"
         f"---\n"
         f"# {title}\n\n"
         f"{cover_block}"
-        f"## thoughts\n- \n"
+        f"## 💭 Thoughts\n- \n"
     )
     note_path.write_text(content)
     print(f"[INFO] Created: comics/{series_slug}.md", flush=True)
@@ -145,8 +147,8 @@ def append_volume(series_slug, vol_number, vol_title, read_date):
         return
     content = note_path.read_text()
     section = f"\n## Vol. {vol_number} · {vol_title}\n- Finished: {read_date}\n"
-    if "## thoughts" in content:
-        content = content.replace("## thoughts", section + "\n## thoughts", 1)
+    if "## 💭 Thoughts" in content:
+        content = content.replace("## 💭 Thoughts", section + "\n## 💭 Thoughts", 1)
     else:
         content += section
     note_path.write_text(content)
