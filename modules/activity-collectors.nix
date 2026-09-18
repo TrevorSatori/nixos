@@ -25,7 +25,8 @@ in {
   # scripts/activity/*.py. Add a new source by copying an existing block.
   # ──────────────────────────────────────────────────────────────────────────
 
-  # ABS — polls the listening-sessions API every 10 min.
+  # ABS — polls the listening-sessions API hourly. Sessions are only written
+  # once closed, so a shorter interval buys nothing but API chatter.
   systemd.services.abs-to-influx = {
     description = "ABS listening sessions → InfluxDB";
     after    = [ "network.target" "influxdb2.service" "audiobookshelf.service" ];
@@ -35,7 +36,7 @@ in {
       INFLUX_URL    = influxUrl;
       INFLUX_ORG    = influxOrg;
       INFLUX_BUCKET = influxBucket;
-      POLL_INTERVAL = "600";
+      POLL_INTERVAL = "3600";
     };
     serviceConfig = {
       ExecStart       = "${pkgs.python3}/bin/python3 ${../scripts/activity/abs.py}";
@@ -85,6 +86,7 @@ in {
       INFLUX_BIOMETRICS_BUCKET = "biometrics";
       POLL_INTERVAL           = "600";
       GARMIN_DEVICE           = "Forerunner 970";
+      GARMIN_FIT_DIR          = "/data/archive/garmin";
     };
     serviceConfig = {
       ExecStart       = "${garminPython}/bin/python3 ${../scripts/activity/garmin.py}";
@@ -92,6 +94,15 @@ in {
       RestartSec      = 30;
       StateDirectory  = "garmin-to-influx";
       EnvironmentFile = [ envFile "/var/src/secrets/garmin.env" ];
+      # Raw .fit files are archived here alongside the InfluxDB metrics.
+      ReadWritePaths  = [ "/data/archive/garmin" ];
     };
   };
+
+  # Garmin .fit archive — created up front so the collector never has to
+  # mkdir into /data as a non-root user.
+  systemd.tmpfiles.rules = [
+    "d /data/archive        0755 root root -"
+    "d /data/archive/garmin 0755 root root -"
+  ];
 }

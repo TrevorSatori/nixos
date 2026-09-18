@@ -19,6 +19,8 @@ import json
 import os
 import time
 import urllib.request
+import zipfile
+import io
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -33,6 +35,7 @@ GARMIN_EMAIL      = os.environ["GARMIN_EMAIL"]
 GARMIN_PASSWORD   = os.environ["GARMIN_PASSWORD"]
 POLL_INTERVAL     = int(os.environ.get("POLL_INTERVAL", "600"))
 DEVICE_NAME       = os.environ.get("GARMIN_DEVICE", "Forerunner 970")
+FIT_ARCHIVE_DIR   = Path(os.environ.get("GARMIN_FIT_DIR", "/data/archive/garmin"))
 
 STATE_DIR  = Path("/var/lib/garmin-to-influx")
 TOKEN_DIR  = STATE_DIR / "token"
@@ -130,6 +133,61 @@ def safe(name, fn, *args, **kwargs):
 
 # ── activities ────────────────────────────────────────────────────────────────
 
+# ── .fit archive ──────────────────────────────────────────────────────────────
+
+def archive_fit(client, activity_id, start_str, type_key):
+    """Download an activity's original .fit and store it under FIT_ARCHIVE_DIR.
+
+    Laid out as <archive>/<YYYY>/<MM>/<YYYY-MM-DD>_<type>_<id>.fit so files
+    sort chronologically and are identifiable without opening them.
+
+    Garmin returns ORIGINAL as a zip (usually one .fit inside). Anything that
+    is not a zip is written through unchanged. Returns True if a new file was
+    written, False if it already existed or the download failed — never raises,
+    since archiving must not break the InfluxDB write path.
+    """
+    try:
+        day = (start_str or "")[:10]              # YYYY-MM-DD
+        year, month = (day[:4], day[5:7]) if len(day) >= 10 else ("unknown", "00")
+        out_dir = FIT_ARCHIVE_DIR / year / month
+        stem = f"{day or 'unknown'}_{type_key}_{activity_id}"
+        out_path = out_dir / f"{stem}.fit"
+
+        if out_path.exists():
+            return False
+
+        from garminconnect import Garmin as _G
+        data = client.download_activity(
+            str(activity_id), dl_fmt=_G.ActivityDownloadFormat.ORIGINAL
+        )
+        if not data:
+            print(f"[WARN] fit {activity_id}: empty download", flush=True)
+            return False
+
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        if data[:2] == b"PK":                     # zip container
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                fits = [n for n in zf.namelist() if n.lower().endswith(".fit")]
+                if not fits:
+                    # Keep whatever it is rather than silently dropping it.
+                    zpath = out_dir / f"{stem}.zip"
+                    zpath.write_bytes(data)
+                    print(f"[WARN] fit {activity_id}: no .fit in zip, kept {zpath.name}", flush=True)
+                    return True
+                for i, name in enumerate(fits):
+                    target = out_path if i == 0 else out_dir / f"{stem}_{i}.fit"
+                    target.write_bytes(zf.read(name))
+        else:
+            out_path.write_bytes(data)
+
+        print(f"[INFO] archived {out_path.relative_to(FIT_ARCHIVE_DIR)}", flush=True)
+        return True
+    except Exception as e:
+        print(f"[WARN] fit {activity_id}: {e}", flush=True)
+        return False
+
+
 def poll_activities(client, state):
     last_id = state.get("last_activity_id")
     since   = (date.today() - timedelta(days=30)).isoformat()
@@ -171,6 +229,10 @@ def poll_activities(client, state):
         )
         lines.append(f"session,{tags} {start_fields} {start_ms}")
         lines.append(f"session,{tags} {stop_fields} {end_ms}")
+
+        # Archive the raw .fit alongside the metrics. Best-effort: a failure
+        # here must not stop the InfluxDB write.
+        archive_fit(client, aid, start_str, raw_type)
 
     if new:
         state["last_activity_id"] = str(new[0]["activityId"])

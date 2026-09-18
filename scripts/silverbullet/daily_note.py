@@ -119,31 +119,59 @@ def day_range_utc(d: date) -> tuple[str, str]:
 # ── activities for the day ───────────────────────────────────────────────────
 
 def fetch_activities(d: date) -> list[dict]:
+    """Sessions for the day, assembled from one query per field.
+
+    InfluxDB stores each field as its own series. Any Flux pipeline that
+    brings `title` (string) and `duration_s` (int) back in a single response
+    — via pivot, or via map/group/sort to force a common schema — transposes
+    string values onto neighbouring rows. That is what silently dropped book
+    titles from the activity table.
+
+    So: one request per field, each returning a homogeneous stream, merged on
+    (_time, source, type) here in Python where the join is explicit.
+    """
     start, stop = day_range_utc(d)
-    flux = f'''from(bucket: "{ACTIVITY_BUCKET}")
+
+    def fetch_field(field: str) -> dict[tuple, str]:
+        flux = f'''from(bucket: "{ACTIVITY_BUCKET}")
   |> range(start: {start}, stop: {stop})
   |> filter(fn: (r) => r._measurement == "session" or r._measurement == "session_short")
-  |> filter(fn: (r) => r._field == "title" or r._field == "duration_s")
-  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-  |> filter(fn: (r) => exists r.duration_s and int(v: r.duration_s) > 0)
-  |> keep(columns: ["_time", "title", "duration_s", "source", "type"])
-  |> group()
-  |> sort(columns: ["_time"])'''
-    rows = influx_query(ACTIVITY_BUCKET, flux)
+  |> filter(fn: (r) => r._field == "{field}")
+  |> keep(columns: ["_time", "_value", "source", "type"])'''
+        out: dict[tuple, str] = {}
+        for r in influx_query(ACTIVITY_BUCKET, flux):
+            t = r.get("_time", "")
+            if not t:
+                continue
+            out[(t, r.get("source", ""), r.get("type", ""))] = r.get("_value", "")
+        return out
+
+    durations = fetch_field("duration_s")
+    titles    = fetch_field("title")
 
     out = []
-    for r in rows:
+    for key, raw_dur in durations.items():
+        t, source, typ = key
         try:
-            ts_utc = datetime.strptime(r["_time"].rstrip("Z").split(".")[0], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            duration = int(float(raw_dur or 0))
+        except ValueError:
+            continue
+        if duration <= 0:
+            continue          # stop sentinel, not a real session
+        try:
+            ts_utc = datetime.strptime(
+                t.rstrip("Z").split(".")[0], "%Y-%m-%dT%H:%M:%S"
+            ).replace(tzinfo=timezone.utc)
         except Exception:
             continue
         out.append({
             "time_local": ts_utc.astimezone(LOCAL_TZ),
-            "title":      r.get("title", ""),
-            "duration_s": int(float(r.get("duration_s", "0") or 0)),
-            "source":     r.get("source", ""),
-            "type":       r.get("type", ""),
+            "title":      titles.get(key, ""),
+            "duration_s": duration,
+            "source":     source,
+            "type":       typ,
         })
+    out.sort(key=lambda a: a["time_local"])
     return out
 
 
@@ -240,6 +268,13 @@ def _title_for(a: dict) -> str:
         return _linkify_book(a["title"])
     if a["source"] == "jellyfin":
         return _linkify_media(a["type"], a["title"])
+    # Garmin titles come straight from Connect and aren't run through
+    # ACTIVITY_TYPE_MAP (which only rewrites the `type` tag). Mirror that
+    # remap on the display title so the table doesn't contradict the icon.
+    # Gated on the already-remapped type so an unmapped Garmin activity that
+    # happens to mention the word is left alone.
+    if a["source"] == "garmin" and a.get("type") == "pornography":
+        return re.sub(r"\bsquash\b", "Pornography", a["title"], flags=re.I)
     return a["title"]
 
 
@@ -614,6 +649,22 @@ def _vitamins_body() -> str:
     return text.strip()
 
 
+DIET_SCAFFOLD = """- **Breakfast:** 
+- **Lunch:** 
+- **Dinner:** 
+- **Drinks:** 
+- **Snacks:** """
+
+DREAMS_SCAFFOLD = """### Dream 1
+
+
+### Dream 2
+
+
+### Dream 3
+"""
+
+
 def build_full_note(d: date, act_body: str, health_body: str) -> str:
     day_name  = d.strftime("%A, %B %-d")
     vitamins  = _vitamins_body()
@@ -621,10 +672,13 @@ def build_full_note(d: date, act_body: str, health_body: str) -> str:
     return (
         f"---\ncreated: {datetime.now(LOCAL_TZ).isoformat(timespec='seconds')}\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\njournal: \"[[journal/{d.year}]]\"\n---\n"
         f"# {day_name}\n\n"
+        f"## ✅ Today\n- [ ] \n\n"
+        f"## ✍️ Journal\n\n\n"
+        f"## 🍽️ Diet\n{DIET_SCAFFOLD}\n\n"
+        f"## 💊 Vitamins\n{vit_block}\n"
         f"## 📊 Activity\n{act_body}\n\n"
         f"## ❤️ Health\n{health_body}\n\n"
-        f"## 💊 Vitamins\n{vit_block}\n"
-        f"## ✍️ Journal\n"
+        f"## 🌙 Dreams\n{DREAMS_SCAFFOLD}"
     )
 
 

@@ -130,5 +130,60 @@
     allowedUDPPorts = [ 51820 22000 21027 ];
   };
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # Fonts. EB Garamond is used for SilverBullet `story` pages (book
+  # typography — see configs/story_style in the vault). The vault keeps its
+  # own copy under fonts/ because the browser fetches it over HTTP from
+  # SilverBullet; installing it here only makes it available to the host.
+  # The tmpfiles rules below copy the 12pt cut into the space on activation
+  # so the two never drift.
+  # ──────────────────────────────────────────────────────────────────────────
+  fonts.packages = with pkgs; [
+    eb-garamond
+  ];
+
+  systemd.tmpfiles.rules = [
+    "d /data/media/silverbullet/fonts 2771 media media -"
+    "C+ /data/media/silverbullet/fonts/EBGaramond12-Regular.ttf 0664 media media - ${pkgs.eb-garamond}/share/fonts/truetype/EBGaramond12-Regular.ttf"
+    "C+ /data/media/silverbullet/fonts/EBGaramond12-Italic.ttf  0664 media media - ${pkgs.eb-garamond}/share/fonts/truetype/EBGaramond12-Italic.ttf"
+  ];
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Automatic updates. Bumps every flake input (nixpkgs, hermes-agent, ...),
+  # rebuilds, and commits the new flake.lock to /etc/nixos so each upgrade is
+  # a tracked, revertable commit.
+  #
+  # allowReboot = false: kernel/systemd updates stage for the next manual
+  # reboot rather than dropping a running server mid-week. Check pending with
+  #   systemctl status nixos-upgrade.service
+  #   journalctl -u nixos-upgrade.service
+  # Roll back a bad upgrade with: nixos-rebuild switch --rollback
+  # ──────────────────────────────────────────────────────────────────────────
+  system.autoUpgrade = {
+    enable = true;
+    flake  = "/etc/nixos#lo-pan";
+    # No --update-input, so all inputs move together.
+    # -L streams build logs into the journal for debugging failures.
+    flags  = [ "--commit-lock-file" "-L" ];
+    dates  = "weekly";                # Monday 00:00
+    randomizedDelaySec = "45min";
+    allowReboot = false;
+  };
+
+  # Weekly upgrades churn the store — without collection it grows without
+  # bound. 30 days keeps a month of generations to roll back to.
+  nix.gc = {
+    automatic = true;
+    dates     = "weekly";
+    options   = "--delete-older-than 30d";
+  };
+
+  # Hard-link identical files across store paths. Meaningful savings once
+  # you're keeping many generations of the same packages.
+  nix.optimise = {
+    automatic = true;
+    dates     = [ "weekly" ];
+  };
+
   system.stateVersion = "24.11";
 }
