@@ -653,6 +653,7 @@ ROUTINE_TEMPLATE = SPACE_PATH / "life" / "routine.md"
 
 # [day: daily] / [day: friday] / [day: mon,wed,fri]
 _DAY_ATTR = re.compile(r"\[day:\s*([^\]]+)\]", re.I)
+_SECTION_ATTR = re.compile(r"\[section:\s*([^\]]+)\]", re.I)
 _ATTRS    = re.compile(r"\s*\[[a-z_]+:\s*[^\]]*\]", re.I)
 
 _WEEKDAY_ALIASES = {
@@ -673,13 +674,27 @@ def _day_matches(spec: str, d: date) -> bool:
     return False
 
 
-def _parse_routine(d: date) -> tuple[list[str], list[str]]:
-    """Return (chore_lines, training_lines) for this date.
+def _parse_routine(d: date) -> tuple[list[str], list[tuple[str, list[str]]]]:
+    """Return (chore_lines, sections) for this date.
 
-    A bare `- ...` line carrying [day:] is a chore and becomes a checkbox.
-    A `###` header carrying [day:] is a block: its child bullets are rendered
-    inline, with no checkbox — those are proven by sensor data (Garmin), not
-    by ticking a box.
+    Structure decides the shape, not which heading a line sits under:
+
+      * a bare `- ...` line with [day:]  -> a checkbox under "## ✅ Today"
+      * a `#` header with [day:]         -> its child lines rendered inline
+                                            under the heading named by
+                                            [section: ...]
+
+    Header blocks get no checkbox by design: a run is proven by the Garmin
+    session in the Activity table, so ticking a box would be duplicate entry
+    about something already recorded.
+
+    `sections` is a list of (heading, lines) in the order each section first
+    appears in routine.md — the file is the config, there is no separate
+    ordering table to keep in sync.
+
+    A header carrying [day:] but no [section:] is skipped and logged rather
+    than defaulted, so a typo can't silently file a fishing trip under
+    Training.
     """
     try:
         text = ROUTINE_TEMPLATE.read_text()
@@ -687,36 +702,41 @@ def _parse_routine(d: date) -> tuple[list[str], list[str]]:
         return [], []
 
     chores: list[str] = []
-    training: list[str] = []
+    sections: dict[str, list[str]] = {}   # insertion-ordered
     lines = text.splitlines()
     i = 0
     while i < len(lines):
         line = lines[i]
         m = _DAY_ATTR.search(line)
 
-        if m and line.lstrip().startswith("#"):
-            # header block — emit heading + its child bullets verbatim
+        # Column 0 only. An indented `### ...` is a fenced/indented code
+        # sample — this page documents its own syntax, and lstrip() would
+        # turn those examples into live rules.
+        if m and line.startswith("#"):
             if _day_matches(m.group(1), d):
-                title = _ATTRS.sub("", line.lstrip("#").strip()).strip()
-                meta_bits = []
-                for key in ("mins", "when"):
-                    km = re.search(rf"\[{key}:\s*([^\]]+)\]", line, re.I)
-                    if km:
-                        meta_bits.append(km.group(1).strip())
-                suffix = "  ·  " + "  ·  ".join(meta_bits) if meta_bits else ""
-                training.append(f"**{title}**{suffix}")
-                j = i + 1
-                while j < len(lines) and not lines[j].lstrip().startswith("#") and not lines[j].lstrip().startswith("---"):
-                    body = lines[j].rstrip()
-                    if body.strip():
-                        training.append(body)
-                    j += 1
-                training.append("")
-                i = j
-                continue
+                sm = _SECTION_ATTR.search(line)
+                if not sm:
+                    title_dbg = _ATTRS.sub("", line.lstrip("#").strip()).strip()
+                    print(f"[WARN] routine block {title_dbg!r} has [day:] but no "
+                          f"[section:] — skipped", flush=True)
+                else:
+                    heading = sm.group(1).strip()
+                    title = _ATTRS.sub("", line.lstrip("#").strip()).strip()
+                    body: list[str] = [f"**{title}**"]
+                    j = i + 1
+                    while (j < len(lines)
+                           and not lines[j].startswith("#")
+                           and not lines[j].startswith("---")):
+                        stripped = lines[j].rstrip()
+                        if stripped.strip():
+                            body.append(stripped)
+                        j += 1
+                    body.append("")
+                    sections.setdefault(heading, []).extend(body)
+                    i = j
+                    continue
 
-        elif m and line.lstrip().startswith("-"):
-            # bare chore line -> checkbox
+        elif m and line.startswith("-"):
             if _day_matches(m.group(1), d):
                 name = _ATTRS.sub("", line.lstrip("- ").strip()).strip()
                 if name:
@@ -724,9 +744,13 @@ def _parse_routine(d: date) -> tuple[list[str], list[str]]:
 
         i += 1
 
-    while training and training[-1] == "":
-        training.pop()
-    return chores, training
+    ordered: list[tuple[str, list[str]]] = []
+    for heading, body in sections.items():
+        while body and body[-1] == "":
+            body.pop()
+        if body:
+            ordered.append((heading, body))
+    return chores, ordered
 
 
 DIET_SCAFFOLD = """- **Breakfast:** 
@@ -772,9 +796,14 @@ def build_full_note(d: date, act_body: str, health_body: str) -> str:
 
     # Recurring items are materialised once, at creation. refresh_auto_sections
     # only rewrites Activity and Health, so re-running can never untick a box.
-    chores, training = _parse_routine(d)
-    today_block   = "\n".join(chores) + "\n- [ ] " if chores else "- [ ] "
-    training_block = ("\n## 🏃 Training\n" + "\n".join(training) + "\n") if training else ""
+    chores, routine_sections = _parse_routine(d)
+    # No trailing blank checkbox: capture belongs in inbox.md, where the
+    # board and the archiver can both see it.
+    today_block   = "\n".join(chores) if chores else ""
+    routine_block = "".join(
+        f"\n## {heading}\n" + "\n".join(body) + "\n"
+        for heading, body in routine_sections
+    )
     return (
         f"---\ncreated: {datetime.now(LOCAL_TZ).isoformat(timespec='seconds')}\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\njournal: \"[[journal/{d.year}]]\"\n---\n"
         f"# {day_name}\n\n"
@@ -783,7 +812,7 @@ def build_full_note(d: date, act_body: str, health_body: str) -> str:
         f"## ✍️ Journal\n\n\n"
         f"## 🍽️ Diet\n{DIET_SCAFFOLD}\n\n"
         f"## 💊 Vitamins\n{vit_block}\n"
-        f"{training_block}"
+        f"{routine_block}"
         f"## 📊 Activity\n{act_body}\n\n"
         f"## ❤️ Health\n{health_body}\n\n"
         f"## 🌙 Dreams\n{DREAMS_SCAFFOLD}"
@@ -889,9 +918,12 @@ def write_note_for(d: date) -> None:
 
 
 def write_today_skeleton(d: date) -> None:
-    """Create today's note if it doesn't exist yet — empty auto sections so the
-    Journal section is ready to type into. Health values stay blank until the
-    day is over and the writer regenerates with real daily aggregates."""
+    """Create the note for `d` if it doesn't exist yet — empty auto sections so
+    the Journal section is ready to type into. Health values stay blank until
+    the day is over and the writer regenerates with real daily aggregates.
+
+    Used for both today and tomorrow; a no-op when the note already exists, so
+    it can never clobber anything you've written."""
     path = note_path(d)
     if path.exists():
         return
@@ -922,8 +954,14 @@ def main() -> None:
         write_note_for(date.fromisoformat(args.date))
         return
 
-    # Default: skeleton-only for today
+    # Default: skeleton for today and tomorrow.
+    #
+    # Tomorrow's note has to exist before midnight for two reasons: you can
+    # open it to jot things for the morning, and the archiver targets the
+    # note matching a task's completion date — if that note doesn't exist yet
+    # the task is skipped and left in the inbox.
     write_today_skeleton(today)
+    write_today_skeleton(today + timedelta(days=1))
 
 
 if __name__ == "__main__":
