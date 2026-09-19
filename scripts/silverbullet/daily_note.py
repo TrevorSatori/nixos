@@ -649,6 +649,86 @@ def _vitamins_body() -> str:
     return text.strip()
 
 
+ROUTINE_TEMPLATE = SPACE_PATH / "life" / "routine.md"
+
+# [day: daily] / [day: friday] / [day: mon,wed,fri]
+_DAY_ATTR = re.compile(r"\[day:\s*([^\]]+)\]", re.I)
+_ATTRS    = re.compile(r"\s*\[[a-z_]+:\s*[^\]]*\]", re.I)
+
+_WEEKDAY_ALIASES = {
+    "mon": "monday", "tue": "tuesday", "tues": "tuesday", "wed": "wednesday",
+    "thu": "thursday", "thur": "thursday", "thurs": "thursday",
+    "fri": "friday", "sat": "saturday", "sun": "sunday",
+}
+
+
+def _day_matches(spec: str, d: date) -> bool:
+    """Does a [day: ...] spec fire on this date?"""
+    weekday = d.strftime("%A").lower()
+    for raw in spec.split(","):
+        tok = raw.strip().lower()
+        tok = _WEEKDAY_ALIASES.get(tok, tok)
+        if tok in ("daily", "everyday", "every day") or tok == weekday:
+            return True
+    return False
+
+
+def _parse_routine(d: date) -> tuple[list[str], list[str]]:
+    """Return (chore_lines, training_lines) for this date.
+
+    A bare `- ...` line carrying [day:] is a chore and becomes a checkbox.
+    A `###` header carrying [day:] is a block: its child bullets are rendered
+    inline, with no checkbox — those are proven by sensor data (Garmin), not
+    by ticking a box.
+    """
+    try:
+        text = ROUTINE_TEMPLATE.read_text()
+    except FileNotFoundError:
+        return [], []
+
+    chores: list[str] = []
+    training: list[str] = []
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        m = _DAY_ATTR.search(line)
+
+        if m and line.lstrip().startswith("#"):
+            # header block — emit heading + its child bullets verbatim
+            if _day_matches(m.group(1), d):
+                title = _ATTRS.sub("", line.lstrip("#").strip()).strip()
+                meta_bits = []
+                for key in ("mins", "when"):
+                    km = re.search(rf"\[{key}:\s*([^\]]+)\]", line, re.I)
+                    if km:
+                        meta_bits.append(km.group(1).strip())
+                suffix = "  ·  " + "  ·  ".join(meta_bits) if meta_bits else ""
+                training.append(f"**{title}**{suffix}")
+                j = i + 1
+                while j < len(lines) and not lines[j].lstrip().startswith("#") and not lines[j].lstrip().startswith("---"):
+                    body = lines[j].rstrip()
+                    if body.strip():
+                        training.append(body)
+                    j += 1
+                training.append("")
+                i = j
+                continue
+
+        elif m and line.lstrip().startswith("-"):
+            # bare chore line -> checkbox
+            if _day_matches(m.group(1), d):
+                name = _ATTRS.sub("", line.lstrip("- ").strip()).strip()
+                if name:
+                    chores.append(f"- [ ] {name}")
+
+        i += 1
+
+    while training and training[-1] == "":
+        training.pop()
+    return chores, training
+
+
 DIET_SCAFFOLD = """- **Breakfast:** 
 - **Lunch:** 
 - **Dinner:** 
@@ -665,17 +745,45 @@ DREAMS_SCAFFOLD = """### Dream 1
 """
 
 
+# Live queries over tasks that live elsewhere (inbox.md and friends).
+# Nothing is copied into the note — checking a box writes [x] back to the
+# source line, and `/done` stamps [completed: YYYY-MM-DD].
+SCHEDULED_QUERY = """${query[[
+  from t = index.tasks()
+  where table.includes(t.itags, "tasks")
+    and not t.done and t.due != nil and t.due <= "%DATE%"
+  order by t.due
+  select templates.taskItem(t)
+]]}"""
+
+COMPLETED_QUERY = """${query[[
+  from t = index.tasks()
+  where table.includes(t.itags, "tasks")
+    and t.done and t.completed == "%DATE%"
+  order by t.name
+  select templates.taskItem(t)
+]]}"""
+
+
 def build_full_note(d: date, act_body: str, health_body: str) -> str:
     day_name  = d.strftime("%A, %B %-d")
     vitamins  = _vitamins_body()
     vit_block = f"\n{vitamins}\n" if vitamins else "\n"
+
+    # Recurring items are materialised once, at creation. refresh_auto_sections
+    # only rewrites Activity and Health, so re-running can never untick a box.
+    chores, training = _parse_routine(d)
+    today_block   = "\n".join(chores) + "\n- [ ] " if chores else "- [ ] "
+    training_block = ("\n## 🏃 Training\n" + "\n".join(training) + "\n") if training else ""
     return (
         f"---\ncreated: {datetime.now(LOCAL_TZ).isoformat(timespec='seconds')}\ntags: daily\ndate: {d.isoformat()}\nyear: {d.year}\njournal: \"[[journal/{d.year}]]\"\n---\n"
         f"# {day_name}\n\n"
-        f"## ✅ Today\n- [ ] \n\n"
+        f"## ✅ Today\n{today_block}\n\n"
+        f"{SCHEDULED_QUERY.replace('%DATE%', d.isoformat())}\n\n"
         f"## ✍️ Journal\n\n\n"
         f"## 🍽️ Diet\n{DIET_SCAFFOLD}\n\n"
         f"## 💊 Vitamins\n{vit_block}\n"
+        f"{training_block}"
         f"## 📊 Activity\n{act_body}\n\n"
         f"## ❤️ Health\n{health_body}\n\n"
         f"## 🌙 Dreams\n{DREAMS_SCAFFOLD}"

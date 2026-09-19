@@ -21,6 +21,7 @@ let
   };
 
   dailyNoteExec = "${pkgs.python3}/bin/python3 ${../scripts/silverbullet/daily_note.py}";
+  archiveTasksExec = "${pkgs.python3}/bin/python3 ${../scripts/silverbullet/archive_tasks.py}";
   dailyNoteEnvFile = "/var/src/secrets/silverbullet-influx.env";
 in
 {
@@ -160,6 +161,42 @@ in
     timerConfig = {
       OnCalendar = "*-*-* 12:00:00";
       Persistent = true;
+    };
+  };
+
+  # ---------------------------------------------------------------------------
+  # Task Archiver — moves completed tasks out of inbox.md into the daily note
+  # for the date they were *completed*, then deletes them from the inbox.
+  #
+  # Runs at 00:05, five minutes after daily-note-writer creates the new day's
+  # skeleton, so a task finished just before midnight still finds its target
+  # note. Targeting the completion date (not "today") means a backlog drains
+  # to the correct days rather than collapsing into one.
+  #
+  # Write-verify-then-delete: the line is appended, the target re-read to
+  # confirm, and only then removed from the inbox. A crash leaves a duplicate,
+  # never a hole. A missing target note is skipped and left in the inbox.
+  #
+  # Dry run:  sudo -u media python3 /etc/nixos/scripts/silverbullet/archive_tasks.py
+  # ---------------------------------------------------------------------------
+  systemd.services.archive-tasks = {
+    description = "Archive completed SilverBullet tasks into their daily notes";
+    after    = [ "daily-note-writer.service" ];
+    serviceConfig = hardenedConfig // {
+      Type           = "oneshot";
+      ExecStart      = "${archiveTasksExec} --apply";
+      User           = "media";
+      Group          = "media";
+      ReadWritePaths = [ spacePath ];
+    };
+  };
+
+  systemd.timers.archive-tasks = {
+    description = "Archive completed tasks at 00:05 local time";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* 00:05:00";
+      Persistent = true;   # catch up if the machine was off at midnight
     };
   };
 
