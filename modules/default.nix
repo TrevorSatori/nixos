@@ -4,6 +4,8 @@
     ./arr_stack.nix
     ./backup.nix
     ./caddy.nix
+    ./forgejo.nix
+    ./forgejo-runner.nix
     ./hermes.nix
     ./homepage.nix
     ./matrix.nix

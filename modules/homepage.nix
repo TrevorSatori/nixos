@@ -192,6 +192,14 @@
             };
           }
           {
+            Forgejo = {
+              icon = "forgejo.png";
+              href = "https://git.lo-pan.com";
+              description = "Self-Hosted Git Forge";
+              ping = "http://127.0.0.1:3002";
+            };
+          }
+          {
             "Paperless-ngx" = {
               icon = "paperless.png";
               href = "https://paperless.lo-pan.com";

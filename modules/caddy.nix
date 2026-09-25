@@ -130,6 +130,11 @@
         reverse_proxy localhost:5232
       }
 
+      git.lo-pan.com {
+        import cf_tls
+        reverse_proxy 127.0.0.1:3002
+      }
+
 
       # --- Monitoring ---
 

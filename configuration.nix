@@ -76,6 +76,13 @@
     syntaxHighlighting.enable = true;
   };
 
+  # zoxide (z / zi) and fzf (Ctrl-R, Ctrl-T, Alt-C) hooked into zsh
+  programs.zoxide.enable = true;
+  programs.fzf = {
+    keybindings = true;
+    fuzzyCompletion = true;
+  };
+
   # System-wide Base Packages
   environment.systemPackages = with pkgs; [
     neovim
@@ -83,6 +90,18 @@
     networkmanager
     wireguard-tools
     restic
+    btop
+    bat
+    fzf
+    fd
+    eza
+
+    # Dev toolchains (newest stable in our nixpkgs; mirrors the CI runner)
+    nodejs_latest
+    python3
+    go
+    rustc cargo rustfmt clippy
+    gcc gnumake pkg-config
   ];
 
   # ---------------------------------------------------------------------------
@@ -125,6 +144,7 @@
     9000  # Portainer
     9696  # Prowlarr
     13378 # Audiobookshelf
+    22000 # Syncthing Data Sync (TCP)
     25600 # Komga
   ];
     allowedUDPPorts = [ 51820 22000 21027 ];

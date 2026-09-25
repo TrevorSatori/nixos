@@ -4,7 +4,7 @@
   # 1. Native PostgreSQL Backup for Immich
   services.postgresqlBackup = {
     enable = true;
-    databases = [ "immich" ];
+    databases = [ "immich" "forgejo" ];
     location = "/var/backup/postgresql";
   };
 
@@ -26,11 +26,12 @@
       "/var/lib/vaultwarden"     # Vaultwarden config/data
       "/var/lib/radicale"
       "/var/lib/audiobookshelf"
+      "/var/lib/forgejo"         # Forgejo repos, LFS, avatars, config
       "/var/backup/vaultwarden"  # Vaultwarden DB dumps
       "/data/media/immich"       # Immich original photos/videos
       "/data/media/photos"       # External libraries
       "/data/media/silverbullet" # SilverBullet PKM — daily notes, book/comic notes, configs
-      "/var/backup/postgresql"   # Immich Postgres DB dumps
+      "/var/backup/postgresql"   # Immich + Forgejo Postgres DB dumps
     ];
 
     # Skip disposable generated caches to save space/bandwidth

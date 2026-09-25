@@ -50,7 +50,7 @@ in
     settings = {
       model = {
         provider = "anthropic";
-        default = "claude-opus-4-7";
+        default = "claude-opus-5-5";
       };
 
       logging = {
@@ -87,6 +87,8 @@ in
     bash 
     cacert 
   ];
+
+   environment.shellAliases.hermes = "sudo -u hermes env HERMES_HOME=/var/lib/hermes/.hermes HOME=/var/lib/hermes hermes";
 
   # Systemd Isolation & Hard Cgroup Bounds (using mkForce to override upstream defaults)
   systemd.services.hermes-agent = {
